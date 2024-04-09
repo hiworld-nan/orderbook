@@ -1,21 +1,23 @@
 In common trading software, real-time display of stock buy and sell order book quotations typically 
 involves N levels of the current best pending buy and sell order prices and quantities. We refer to 
 this as the N-Order Book. The real-time generation process for the N-Order Book is as follows:
-                  						                 orderbook(t-1)
-                  							                    |
-                  				  ------------------------|
-                  				  |			                  |
-	order(t)------------>execution(t)------------>orderbook(t)
-                  							                    |
-                  				  ------------------------|
-                  				  |			                  |
-	order(t)------------>execution(t)------------>orderbook(t+1)
-                                                    .
-                                                    .
-                                                    .
-                            ------------------------.
-                            |			                  .
-	order(t+N)---------->execution(t+N)---------->orderbook(t+N)
+
+					     orderbook(t-1)
+						  |
+			  ------------------------|
+			  |			  |
+order(t)------------>execution(t)------------>orderbook(t)
+						  |
+			  ------------------------|
+			  |			  |
+order(t)------------>execution(t)------------>orderbook(t+1)
+						  .
+						  .
+						  .
+			   -----------------------.
+			   |			  .
+order(t+N)---------->execution(t+N)---------->orderbook(t+N)
+ 
 
 Receive the latest quote orders.
 Match these orders with the current order book based on order priority.
