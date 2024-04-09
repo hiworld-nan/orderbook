@@ -62,13 +62,3 @@ struct zAllocator : public std::allocator<T> {
    private:
     FlatPool<T> memPool_;
 };
-
-template <typename T, typename U>
-inline bool operator==(const zAllocator<T>&, const zAllocator<U>&) {
-    return true;
-}
-
-template <typename T, typename U>
-inline bool operator!=(const zAllocator<T>&, const zAllocator<U>&) {
-    return false;
-}
