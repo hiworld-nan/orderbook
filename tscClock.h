@@ -5,6 +5,7 @@
 #include <ctime>
 #include <iomanip>
 #include <thread>
+#include "util.h"
 
 using namespace std;
 
@@ -21,7 +22,7 @@ static constexpr uint64_t skMsPerSecond = 1'000ul;
 static uint64_t rdtsc() { return __builtin_ia32_rdtsc(); }
 
 template <uint32_t LOOP = 71>
-static uint64_t calibrateTsc() {
+static NoInline uint64_t calibrateTsc() {
     std::timespec ts, te;
     uint64_t tss = 0, tse = 0, tes = 0, tee = 0, tscFreq = 0;
     uint64_t deltaStart = 0, deltaEnd = 0, deltaMin = ~0;
@@ -50,5 +51,5 @@ static uint64_t calibrateTsc() {
     return skTicksPerSecond = tscFreq;
 }
 
-static inline uint64_t ns2Tsc(const uint64_t ns) { return ((ns)*skTicksPerSecond / skNsPerSecond); }
-static inline uint64_t tsc2Ns(const uint64_t tsc) { return ((tsc)*skNsPerSecond / skTicksPerSecond); }
+static ForceInline uint64_t ns2Tsc(const uint64_t ns) { return ((ns)*skTicksPerSecond / skNsPerSecond); }
+static ForceInline uint64_t tsc2Ns(const uint64_t tsc) { return ((tsc)*skNsPerSecond / skTicksPerSecond); }

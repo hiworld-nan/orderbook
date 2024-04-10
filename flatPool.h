@@ -5,16 +5,9 @@
 #include <cstring>
 #include <set>
 #include <utility>
+#include "util.h"
 
 using namespace std;
-
-#ifndef likely
-#define likely(x) __builtin_expect(!!(x), 1)
-#endif
-
-#ifndef unlikely
-#define unlikely(x) __builtin_expect(!!(x), 0)
-#endif
 
 template <class T>
 struct FlatPool final {
@@ -81,7 +74,7 @@ struct FlatPool final {
         ChunkInfo() = default;
         ChunkInfo(const DataT* end, const DataT* begin = nullptr, int32_t index = SelfT::skInvalidIndex)
             : end_(end), begin_(begin), index_(index) {}
-        bool operator<(const ChunkInfo& other) const { return end_ < other.end_; }
+        ForceInline bool operator<(const ChunkInfo& other) const { return end_ < other.end_; }
     } __attribute__((packed));
 
     FlatPool() = default;
@@ -169,4 +162,3 @@ struct FlatPool final {
     std::set<ChunkInfo> chunkSet_{};
     ChunkT chunks_[SelfT::skMaxChunkSize];
 };
-
