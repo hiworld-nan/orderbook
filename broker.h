@@ -17,6 +17,7 @@
 
 // not thread safe
 struct Broker {
+    static constexpr int32_t kDefaultCacheLineSize = 64;
     using BidsT = std::map<Price, Qty, std::greater<Price>, zAllocator<std::pair<const Price, Qty>>>;
     using AsksT = std::map<Price, Qty, std::less<Price>, zAllocator<std::pair<const Price, Qty>>>;
 
@@ -106,13 +107,12 @@ struct Broker {
         const bool shouldBeMatch = !lessThan(buyOrder.price_, askPriceLowerBound_);
         if (shouldBeMatch) {
             for (auto it = asks_.begin(); it != asks_.upper_bound(buyOrder.price_);) {
-                if (it->second > remainQty) {
+                if (likely(it->second > remainQty)) {
                     it->second -= remainQty;
                     remainQty = 0;
                     break;
                 } else {
                     remainQty -= it->second;
-                    it->second = 0;
                     it = asks_.erase(it);
                     updateAskPriceBoundary(it);
                 }
@@ -130,18 +130,17 @@ struct Broker {
         // at first, should determine whether the entry exist in order book
         // order should be stored in hashmap
         Qty remainQty = buyOrder.remainQty_;
-        const bool lessThanLower = lessThan(buyOrder.price_, askPriceLowerBound_);
-        const bool greaterThanUpper = greator(buyOrder.price_, askPriceLowerBound_);
+        const bool lessThanLower = lessThan(buyOrder.price_, bidPriceLowerBound_);
+        const bool greaterThanUpper = greator(buyOrder.price_, bidPriceLowerBound_);
         const bool shouldBeCancel = !(lessThanLower || greaterThanUpper);
         if (shouldBeCancel) {
-            auto it = asks_.find(buyOrder.price_);
-            if (it != asks_.end()) {
+            auto it = bids_.find(buyOrder.price_);
+            if (it != bids_.end()) {
                 if (it->second > remainQty) {
                     it->second -= remainQty;
                 } else {
-                    it->second = 0;
                     it = asks_.erase(it);
-                    updateAskPriceBoundary(it, buyOrder.price_);
+                    updateBidPriceBoundary(it, buyOrder.price_);
                 }
             }
         }
@@ -153,13 +152,12 @@ struct Broker {
         const bool shouldBeMatch = !greator(sellOrder.price_, bidPriceUpperBound_);
         if (shouldBeMatch) {
             for (auto it = bids_.begin(); it != bids_.upper_bound(sellOrder.price_);) {
-                if (it->second > remainQty) {
+                if (likely(it->second > remainQty)) {
                     it->second -= remainQty;
                     remainQty = 0;
                     break;
                 } else {
                     remainQty -= it->second;
-                    it->second = 0;
                     it = bids_.erase(it);
                     updateBidPriceBoundary(it);
                 }
@@ -176,18 +174,17 @@ struct Broker {
     void onCancelLimitSellOrder(const Order &sellOrder) {
         // at first, should determine whether the entry exist in order book
         Qty remainQty = sellOrder.remainQty_;
-        const bool lessThanLower = lessThan(sellOrder.price_, bidPriceLowerBound_);
-        const bool greaterThanUpper = greator(sellOrder.price_, bidPriceLowerBound_);
+        const bool lessThanLower = lessThan(sellOrder.price_, askPriceLowerBound_);
+        const bool greaterThanUpper = greator(sellOrder.price_, askPriceLowerBound_);
         const bool shouldBeCancel = !(lessThanLower || greaterThanUpper);
         if (shouldBeCancel) {
-            auto it = bids_.find(sellOrder.price_);
-            if (it != bids_.end()) {
+            auto it = asks_.find(sellOrder.price_);
+            if (it != asks_.end()) {
                 if (it->second > remainQty) {
                     it->second -= remainQty;
                 } else {
-                    it->second = 0;
                     it = bids_.erase(it);
-                    updateBidPriceBoundary(it, sellOrder.price_);
+                    updateAskPriceBoundary(it, sellOrder.price_);
                 }
             }
         }
@@ -200,14 +197,13 @@ struct Broker {
         const bool shouldBeMatch = lessThan(buyOrder.price_, askPriceLowerBound_);
         if (shouldBeMatch) {
             for (auto it = asks_.begin(); it != asks_.end();) {
-                if (it->second > remainQty) {
+                if (likely(it->second > remainQty)) {
                     it->second -= remainQty;
                     remainQty = 0;
                     break;
                 } else {
                     // when filled qty hit 1% of total limit order qty should give up fill
                     remainQty -= it->second;
-                    it->second = 0;
                     it = asks_.erase(it);
                     updateAskPriceBoundary(it);
                 }
@@ -233,14 +229,13 @@ struct Broker {
         const bool shouldBeMatch = !greator(sellOrder.price_, bidPriceUpperBound_);
         if (shouldBeMatch) {
             for (auto it = bids_.begin(); it != bids_.end();) {
-                if (it->second > remainQty) {
+                if (likely(it->second > remainQty)) {
                     it->second -= remainQty;
                     remainQty = 0;
                     break;
                 } else {
                     // when filled qty hit 1% of total limit order qty should give up fill
                     remainQty -= it->second;
-                    it->second = 0;
                     it = bids_.erase(it);
                     updateBidPriceBoundary(it);
                 }
@@ -346,11 +341,11 @@ struct Broker {
     }
 
    private:
-    Price bidPriceUpperBound_ = std::numeric_limits<Price>::min();
-    Price bidPriceLowerBound_ = std::numeric_limits<Price>::max();
-    BidsT bids_;
+    alignas(kDefaultCacheLineSize) Price bidPriceUpperBound_ = std::numeric_limits<Price>::min();
+    alignas(kDefaultCacheLineSize) Price bidPriceLowerBound_ = std::numeric_limits<Price>::max();
+    alignas(kDefaultCacheLineSize) BidsT bids_;
 
-    Price askPriceUpperBound_ = std::numeric_limits<Price>::min();
-    Price askPriceLowerBound_ = std::numeric_limits<Price>::max();
-    AsksT asks_;
+    alignas(kDefaultCacheLineSize) Price askPriceUpperBound_ = std::numeric_limits<Price>::min();
+    alignas(kDefaultCacheLineSize) Price askPriceLowerBound_ = std::numeric_limits<Price>::max();
+    alignas(kDefaultCacheLineSize) AsksT asks_;
 };
