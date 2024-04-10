@@ -354,4 +354,3 @@ struct Broker {
     Price askPriceLowerBound_ = std::numeric_limits<Price>::max();
     AsksT asks_;
 };
-

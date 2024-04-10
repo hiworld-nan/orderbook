@@ -3,7 +3,7 @@ CC = g++
 Source = $(wildcard ./*.cpp)
 Object = $(patsubst %.cpp, %.o, $(Source))
 
-CFlags = -Wall -std=c++2a -m64
+CFlags = -Wall -std=c++2b -m64
 OFlags = -Ofast -mtune=native -march=native
 LDFlags = -v -lpthread -fopenmp
 
