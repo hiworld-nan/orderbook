@@ -64,17 +64,17 @@ struct FlatPool final {
 
        private:
         DataT* dataPtr_ = nullptr;
-    } __attribute__((packed));
+    };
     using ChunkT = Chunk;
 
     struct ChunkInfo {
         const DataT* end_ = nullptr;
         const DataT* begin_ = nullptr;
-        int16_t index_ = SelfT::skInvalidIndex;
+        int32_t index_ = SelfT::skInvalidIndex;
         ChunkInfo() = default;
         ChunkInfo(const DataT* end, const DataT* begin = nullptr, int32_t index = SelfT::skInvalidIndex)
             : end_(end), begin_(begin), index_(index) {}
-        ForceInline bool operator<(const ChunkInfo& other) const { return end_ < other.end_; }
+        bool operator<(const ChunkInfo& other) const { return end_ < other.end_; }
     } __attribute__((packed));
 
     FlatPool() = default;
@@ -101,7 +101,7 @@ struct FlatPool final {
         if (!data) return;
 
         int32_t index = getIndex(data);
-        if (index ^ SelfT::skInvalidIndex) {
+        if (likely(index ^ SelfT::skInvalidIndex)) {
             *(reinterpret_cast<int32_t*>(const_cast<DataT*>(data))) = freeIndex_;
             freeIndex_ = index;
         }
@@ -120,7 +120,7 @@ struct FlatPool final {
     }
 
     void deallocate(uint32_t index) {
-        if (index <= latestIndex_) {
+        if (likely(index <= latestIndex_)) {
             *(reinterpret_cast<int32_t*>(&at(index))) = freeIndex_;
             freeIndex_ = index;
         }
@@ -136,7 +136,7 @@ struct FlatPool final {
         const ChunkInfo entry{data};
         auto it = chunkSet_.upper_bound(entry);
         if (it != chunkSet_.end() && data >= it->begin_) {
-            return (it->index_ << SelfT::skChunkCapacityExponent) | (data - it->begin_);
+            return (data - it->begin_) | (it->index_ << SelfT::skChunkCapacityExponent);
         }
         return SelfT::skInvalidIndex;
     }
@@ -149,7 +149,7 @@ struct FlatPool final {
             ChunkT& chunkRef = chunks_[++latestChunkIndex_];
             chunkRef.construct();
             chunkSet_.emplace(chunkRef.end(), chunkRef.begin(), latestChunkIndex_);
-            return chunks_[latestChunkIndex_];
+            return chunkRef;
         }
     }
 
@@ -158,7 +158,6 @@ struct FlatPool final {
     int32_t latestIndex_ = SelfT::skInvalidIndex;
     int32_t latestChunkIndex_ = SelfT::skInvalidIndex;
 
-    // replace std::set with any better container (flat_set)
     std::set<ChunkInfo> chunkSet_{};
     ChunkT chunks_[SelfT::skMaxChunkSize];
 };

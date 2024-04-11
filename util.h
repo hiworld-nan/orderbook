@@ -1,5 +1,7 @@
 #pragma once
 
+static constexpr int32_t kDefaultCacheLineSize = 64;
+
 #ifndef ForceInline
 #define ForceInline __attribute__((always_inline)) inline
 #endif

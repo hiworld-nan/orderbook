@@ -17,7 +17,6 @@
 
 // not thread safe
 struct Broker {
-    static constexpr int32_t kDefaultCacheLineSize = 64;
     using BidsT = std::map<Price, Qty, std::greater<Price>, zAllocator<std::pair<const Price, Qty>>>;
     using AsksT = std::map<Price, Qty, std::less<Price>, zAllocator<std::pair<const Price, Qty>>>;
 
@@ -287,7 +286,7 @@ struct Broker {
     }
 
     void updateBidPriceBoundary(const BidsT::iterator &it) {
-        if (!bids_.empty()) {
+        if (likely(!bids_.empty())) {
             bidPriceUpperBound_ = it->first;
         } else {
             bidPriceLowerBound_ = std::numeric_limits<Price>::max();
@@ -296,7 +295,7 @@ struct Broker {
     }
 
     void updateAskPriceBoundary(const AsksT::iterator &it) {
-        if (!asks_.empty()) {
+        if (likely(!asks_.empty())) {
             askPriceLowerBound_ = it->first;
         } else {
             askPriceLowerBound_ = std::numeric_limits<Price>::max();
