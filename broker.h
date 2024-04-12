@@ -105,23 +105,20 @@ struct Broker {
         Qty remainQty = buyOrder.remainQty_;
         const bool shouldBeMatch = !lessThan(buyOrder.price_, bestAskPrice_);
         if (shouldBeMatch) {
-            bool shoulUpdateBestAsk = false;
-            Price bestAskPrice = bestAskPrice_;
             for (auto it = asks_.begin(); it != asks_.upper_bound(buyOrder.price_);) {
                 if (it->second > remainQty) [[likely]] {
-                    bestAskPrice = it->first;
+                    bestAskPrice_ = it->first;
                     it->second -= remainQty;
                     remainQty = 0;
                     break;
                 } else {
-                    shoulUpdateBestAsk = true;
                     remainQty -= it->second;
                     it = asks_.erase(it);
                 }
             }
 
-            if (shoulUpdateBestAsk) {
-                updateAskPriceBoundary(bestAskPrice);
+            if (asks_.empty()) {
+                bestAskPrice_ = std::numeric_limits<Price>::max();
             }
         }
 
@@ -152,23 +149,20 @@ struct Broker {
         Qty remainQty = sellOrder.remainQty_;
         const bool shouldBeMatch = !greator(sellOrder.price_, bestBidPrice_);
         if (shouldBeMatch) {
-            bool shoulUpdateBestBid = false;
-            Price bestBidPrice = bestBidPrice_;
             for (auto it = bids_.begin(); it != bids_.upper_bound(sellOrder.price_);) {
                 if (it->second > remainQty) [[likely]] {
-                    bestBidPrice = it->first;
+                    bestBidPrice_ = it->first;
                     it->second -= remainQty;
                     remainQty = 0;
                     break;
                 } else {
-                    shoulUpdateBestBid = true;
                     remainQty -= it->second;
                     it = bids_.erase(it);
                 }
             }
 
-            if (shoulUpdateBestBid)  {
-                updateBidPriceBoundary(bestBidPrice);
+            if (bids_.empty()) {
+                bestBidPrice_ = std::numeric_limits<Price>::min();
             }
         }
 
@@ -199,24 +193,21 @@ struct Broker {
         Qty remainQty = buyOrder.remainQty_;
         const bool shouldBeMatch = lessThan(buyOrder.price_, bestAskPrice_);
         if (shouldBeMatch) {
-            bool shoulUpdateBestAsk = false;
-            Price bestAskPrice = bestAskPrice_;
             for (auto it = asks_.begin(); it != asks_.end();) {
-                if (it->second > remainQty) {
-                    bestAskPrice = it->first;
+                if (it->second > remainQty) [[likely]] {
+                    bestAskPrice_ = it->first;
                     it->second -= remainQty;
                     remainQty = 0;
                     break;
                 } else {
                     // when filled qty hit 1% of total limit order qty should give up fill
-                    shoulUpdateBestAsk = true;
                     remainQty -= it->second;
                     it = asks_.erase(it);
                 }
             }
 
-            if (shoulUpdateBestAsk) [[unlikely]] {
-                updateAskPriceBoundary(bestAskPrice);
+            if (asks_.empty()) {
+                bestAskPrice_ = std::numeric_limits<Price>::max();
             }
         }
 
@@ -238,24 +229,21 @@ struct Broker {
         Qty remainQty = sellOrder.remainQty_;
         const bool shouldBeMatch = !greator(sellOrder.price_, bestBidPrice_);
         if (shouldBeMatch) {
-            bool shoulUpdateBestBid = false;
-            Price bestBidPrice = bestBidPrice_;
             for (auto it = bids_.begin(); it != bids_.end();) {
-                if (it->second > remainQty) {
-                    bestBidPrice = it->first;
+                if (it->second > remainQty) [[likely]] {
+                    bestBidPrice_ = it->first;
                     it->second -= remainQty;
                     remainQty = 0;
                     break;
                 } else {
                     // when filled qty hit 1% of total limit order qty should give up fill
-                    shoulUpdateBestBid = true;
                     remainQty -= it->second;
                     it = bids_.erase(it);
                 }
             }
 
-            if (shoulUpdateBestBid) [[unlikely]] {
-                updateBidPriceBoundary(bestBidPrice);
+            if (bids_.empty()) {
+                bestBidPrice_ = std::numeric_limits<Price>::min();
             }
         }
 
@@ -271,8 +259,7 @@ struct Broker {
 
     void updateBidPriceBoundary(BidsT::iterator &it, Price price) {
         if (!bids_.empty()) {
-            const bool equalToUpper = equal(price, bestBidPrice_);
-            if (equalToUpper) {
+            if (equal(price, bestBidPrice_)) {
                 bestBidPrice_ = it->first;
             }
         } else {
@@ -282,26 +269,9 @@ struct Broker {
 
     void updateAskPriceBoundary(AsksT::iterator &it, Price price) {
         if (!asks_.empty()) {
-            const bool equalToLower = equal(price, bestAskPrice_);
-            if (equalToLower) {
+            if (equal(price, bestAskPrice_)) {
                 bestAskPrice_ = it->first;
             }
-        } else {
-            bestAskPrice_ = std::numeric_limits<Price>::max();
-        }
-    }
-
-    void updateBidPriceBoundary(Price price) {
-        if (!bids_.empty()) [[likely]] {
-            bestBidPrice_ = price;
-        } else {
-            bestBidPrice_ = std::numeric_limits<Price>::min();
-        }
-    }
-
-    void updateAskPriceBoundary(Price price) {
-        if (!asks_.empty()) [[likely]] {
-            bestAskPrice_ = price;
         } else {
             bestAskPrice_ = std::numeric_limits<Price>::max();
         }
@@ -330,18 +300,9 @@ struct Broker {
     }
 
    private:
-    /*alignas(kDefaultCacheLineSize) Price bestBidPrice_ = std::numeric_limits<Price>::min();
-    alignas(kDefaultCacheLineSize) BidsT bids_;
-
-    alignas(kDefaultCacheLineSize) Price bestAskPrice_ = std::numeric_limits<Price>::max();
-    alignas(kDefaultCacheLineSize) AsksT asks_;*/
-
     alignas(kDefaultCacheLineSize) Price bestBidPrice_ = std::numeric_limits<Price>::min();
-    //Price bestBidPrice_ = std::numeric_limits<Price>::min();
     alignas(kDefaultCacheLineSize) BidsT bids_;
 
     alignas(kDefaultCacheLineSize) Price bestAskPrice_ = std::numeric_limits<Price>::max();
-    //Price bestAskPrice_ = std::numeric_limits<Price>::max();
     alignas(kDefaultCacheLineSize) AsksT asks_;
 };
-
