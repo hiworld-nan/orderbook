@@ -103,18 +103,25 @@ struct Broker {
    private:
     void onLimitBuyOrder(const Order &buyOrder) {
         Qty remainQty = buyOrder.remainQty_;
-        const bool shouldBeMatch = !lessThan(buyOrder.price_, askPriceLowerBound_);
+        const bool shouldBeMatch = !lessThan(buyOrder.price_, bestAskPrice_);
         if (shouldBeMatch) {
+            bool shoulUpdateBestAsk = false;
+            Price bestAskPrice = bestAskPrice_;
             for (auto it = asks_.begin(); it != asks_.upper_bound(buyOrder.price_);) {
-                if (likely(it->second > remainQty)) {
+                if (it->second > remainQty) [[likely]] {
+                    bestAskPrice = it->first;
                     it->second -= remainQty;
                     remainQty = 0;
                     break;
                 } else {
+                    shoulUpdateBestAsk = true;
                     remainQty -= it->second;
                     it = asks_.erase(it);
-                    updateAskPriceBoundary(it);
                 }
+            }
+
+            if (shoulUpdateBestAsk) {
+                updateAskPriceBoundary(bestAskPrice);
             }
         }
 
@@ -129,18 +136,13 @@ struct Broker {
         // at first, should determine whether the entry exist in order book
         // order should be stored in hashmap
         Qty remainQty = buyOrder.remainQty_;
-        const bool lessThanLower = lessThan(buyOrder.price_, bidPriceLowerBound_);
-        const bool greaterThanUpper = greator(buyOrder.price_, bidPriceLowerBound_);
-        const bool shouldBeCancel = !(lessThanLower || greaterThanUpper);
-        if (shouldBeCancel) {
-            auto it = bids_.find(buyOrder.price_);
-            if (it != bids_.end()) {
-                if (it->second > remainQty) {
-                    it->second -= remainQty;
-                } else {
-                    it = asks_.erase(it);
-                    updateBidPriceBoundary(it, buyOrder.price_);
-                }
+        auto it = bids_.find(buyOrder.price_);
+        if (it != bids_.end()) {
+            if (it->second > remainQty) {
+                it->second -= remainQty;
+            } else {
+                it = bids_.erase(it);
+                updateBidPriceBoundary(it, buyOrder.price_);
             }
         }
         // if shouldBeCancel == false then send error rsp to trader in matching engine
@@ -148,18 +150,25 @@ struct Broker {
 
     void onLimitSellOrder(const Order &sellOrder) {
         Qty remainQty = sellOrder.remainQty_;
-        const bool shouldBeMatch = !greator(sellOrder.price_, bidPriceUpperBound_);
+        const bool shouldBeMatch = !greator(sellOrder.price_, bestBidPrice_);
         if (shouldBeMatch) {
+            bool shoulUpdateBestBid = false;
+            Price bestBidPrice = bestBidPrice_;
             for (auto it = bids_.begin(); it != bids_.upper_bound(sellOrder.price_);) {
-                if (likely(it->second > remainQty)) {
+                if (it->second > remainQty) [[likely]] {
+                    bestBidPrice = it->first;
                     it->second -= remainQty;
                     remainQty = 0;
                     break;
                 } else {
+                    shoulUpdateBestBid = true;
                     remainQty -= it->second;
                     it = bids_.erase(it);
-                    updateBidPriceBoundary(it);
                 }
+            }
+
+            if (shoulUpdateBestBid)  {
+                updateBidPriceBoundary(bestBidPrice);
             }
         }
 
@@ -173,18 +182,13 @@ struct Broker {
     void onCancelLimitSellOrder(const Order &sellOrder) {
         // at first, should determine whether the entry exist in order book
         Qty remainQty = sellOrder.remainQty_;
-        const bool lessThanLower = lessThan(sellOrder.price_, askPriceLowerBound_);
-        const bool greaterThanUpper = greator(sellOrder.price_, askPriceLowerBound_);
-        const bool shouldBeCancel = !(lessThanLower || greaterThanUpper);
-        if (shouldBeCancel) {
-            auto it = asks_.find(sellOrder.price_);
-            if (it != asks_.end()) {
-                if (it->second > remainQty) {
-                    it->second -= remainQty;
-                } else {
-                    it = bids_.erase(it);
-                    updateAskPriceBoundary(it, sellOrder.price_);
-                }
+        auto it = asks_.find(sellOrder.price_);
+        if (it != asks_.end()) {
+            if (it->second > remainQty) {
+                it->second -= remainQty;
+            } else {
+                it = asks_.erase(it);
+                updateAskPriceBoundary(it, sellOrder.price_);
             }
         }
     }
@@ -193,19 +197,26 @@ struct Broker {
     // protect traders from things like slippage and “fat finger trade” (trader mistakes).
     void onMarketBuyOrder(const Order &buyOrder) {
         Qty remainQty = buyOrder.remainQty_;
-        const bool shouldBeMatch = lessThan(buyOrder.price_, askPriceLowerBound_);
+        const bool shouldBeMatch = lessThan(buyOrder.price_, bestAskPrice_);
         if (shouldBeMatch) {
+            bool shoulUpdateBestAsk = false;
+            Price bestAskPrice = bestAskPrice_;
             for (auto it = asks_.begin(); it != asks_.end();) {
-                if (likely(it->second > remainQty)) {
+                if (it->second > remainQty) {
+                    bestAskPrice = it->first;
                     it->second -= remainQty;
                     remainQty = 0;
                     break;
                 } else {
                     // when filled qty hit 1% of total limit order qty should give up fill
+                    shoulUpdateBestAsk = true;
                     remainQty -= it->second;
                     it = asks_.erase(it);
-                    updateAskPriceBoundary(it);
                 }
+            }
+
+            if (shoulUpdateBestAsk) [[unlikely]] {
+                updateAskPriceBoundary(bestAskPrice);
             }
         }
 
@@ -225,19 +236,26 @@ struct Broker {
     // and “fat finger trade” (trader mistakes).
     void onMarketSellOrder(const Order &sellOrder) {
         Qty remainQty = sellOrder.remainQty_;
-        const bool shouldBeMatch = !greator(sellOrder.price_, bidPriceUpperBound_);
+        const bool shouldBeMatch = !greator(sellOrder.price_, bestBidPrice_);
         if (shouldBeMatch) {
+            bool shoulUpdateBestBid = false;
+            Price bestBidPrice = bestBidPrice_;
             for (auto it = bids_.begin(); it != bids_.end();) {
-                if (likely(it->second > remainQty)) {
+                if (it->second > remainQty) {
+                    bestBidPrice = it->first;
                     it->second -= remainQty;
                     remainQty = 0;
                     break;
                 } else {
                     // when filled qty hit 1% of total limit order qty should give up fill
+                    shoulUpdateBestBid = true;
                     remainQty -= it->second;
                     it = bids_.erase(it);
-                    updateBidPriceBoundary(it);
                 }
+            }
+
+            if (shoulUpdateBestBid) [[unlikely]] {
+                updateBidPriceBoundary(bestBidPrice);
             }
         }
 
@@ -253,98 +271,77 @@ struct Broker {
 
     void updateBidPriceBoundary(BidsT::iterator &it, Price price) {
         if (!bids_.empty()) {
-            const bool equalToLower = equal(price, bidPriceLowerBound_);
-            const bool equalToUpper = equal(price, bidPriceUpperBound_);
+            const bool equalToUpper = equal(price, bestBidPrice_);
             if (equalToUpper) {
-                bidPriceUpperBound_ = it->first;
-            }
-            if (equalToLower) {
-                it--;
-                bidPriceLowerBound_ = it->first;
+                bestBidPrice_ = it->first;
             }
         } else {
-            bidPriceLowerBound_ = std::numeric_limits<Price>::max();
-            bidPriceUpperBound_ = std::numeric_limits<Price>::min();
+            bestBidPrice_ = std::numeric_limits<Price>::min();
         }
     }
 
     void updateAskPriceBoundary(AsksT::iterator &it, Price price) {
         if (!asks_.empty()) {
-            const bool equalToLower = equal(price, askPriceLowerBound_);
-            const bool equalToUpper = equal(price, askPriceUpperBound_);
+            const bool equalToLower = equal(price, bestAskPrice_);
             if (equalToLower) {
-                askPriceLowerBound_ = it->first;
-            }
-            if (equalToUpper) {
-                it--;
-                askPriceUpperBound_ = it->first;
+                bestAskPrice_ = it->first;
             }
         } else {
-            askPriceLowerBound_ = std::numeric_limits<Price>::max();
-            askPriceUpperBound_ = std::numeric_limits<Price>::min();
+            bestAskPrice_ = std::numeric_limits<Price>::max();
         }
     }
 
-    void updateBidPriceBoundary(const BidsT::iterator &it) {
-        if (likely(!bids_.empty())) {
-            bidPriceUpperBound_ = it->first;
+    void updateBidPriceBoundary(Price price) {
+        if (!bids_.empty()) [[likely]] {
+            bestBidPrice_ = price;
         } else {
-            bidPriceLowerBound_ = std::numeric_limits<Price>::max();
-            bidPriceUpperBound_ = std::numeric_limits<Price>::min();
+            bestBidPrice_ = std::numeric_limits<Price>::min();
         }
     }
 
-    void updateAskPriceBoundary(const AsksT::iterator &it) {
-        if (likely(!asks_.empty())) {
-            askPriceLowerBound_ = it->first;
+    void updateAskPriceBoundary(Price price) {
+        if (!asks_.empty()) [[likely]] {
+            bestAskPrice_ = price;
         } else {
-            askPriceLowerBound_ = std::numeric_limits<Price>::max();
-            askPriceUpperBound_ = std::numeric_limits<Price>::min();
+            bestAskPrice_ = std::numeric_limits<Price>::max();
         }
     }
 
     void updateAskOrderBook(const Order &orderRef, Qty remainQty) {
-        const bool lessThanLower = lessThan(orderRef.price_, askPriceLowerBound_);
-        const bool greaterThanUpper = greator(orderRef.price_, askPriceUpperBound_);
-        const bool shouldBeEmplace = lessThanLower || greaterThanUpper;
-        if (shouldBeEmplace) {
-            asks_.emplace(orderRef.price_, remainQty);
-            askPriceLowerBound_ = lessThanLower ? orderRef.price_ : askPriceLowerBound_;
-            askPriceUpperBound_ = greaterThanUpper ? orderRef.price_ : askPriceUpperBound_;
+        auto result = asks_.emplace(orderRef.price_, remainQty);
+        if (!result.second) {
+            result.first->second += remainQty;
         } else {
-            auto it = asks_.find(orderRef.price_);
-            if (it != asks_.end()) {
-                it->second += remainQty;
-            } else {
-                asks_.emplace(orderRef.price_, remainQty);
+            if (lessThan(orderRef.price_, bestAskPrice_)) {
+                bestAskPrice_ = orderRef.price_;
             }
         }
     }
 
     void updateBidOrderBook(const Order &orderRef, Qty remainQty) {
-        const bool lessThanLower = lessThan(orderRef.price_, bidPriceLowerBound_);
-        const bool greaterThanUpper = greator(orderRef.price_, bidPriceUpperBound_);
-        const bool shouldBeEmplace = lessThanLower || greaterThanUpper;
-        if (shouldBeEmplace) {
-            bids_.emplace(orderRef.price_, remainQty);
-            bidPriceLowerBound_ = lessThanLower ? orderRef.price_ : bidPriceLowerBound_;
-            bidPriceUpperBound_ = greaterThanUpper ? orderRef.price_ : bidPriceUpperBound_;
+        auto result = bids_.emplace(orderRef.price_, remainQty);
+        if (!result.second) {
+            result.first->second += remainQty;
         } else {
-            auto it = bids_.find(orderRef.price_);
-            if (it != bids_.end()) {
-                it->second += remainQty;
-            } else {
-                bids_.emplace(orderRef.price_, remainQty);
+            if (greator(orderRef.price_, bestBidPrice_)) {
+                bestBidPrice_ = orderRef.price_;
             }
         }
     }
 
    private:
-    alignas(kDefaultCacheLineSize) Price bidPriceUpperBound_ = std::numeric_limits<Price>::min();
-    alignas(kDefaultCacheLineSize) Price bidPriceLowerBound_ = std::numeric_limits<Price>::max();
+    /*alignas(kDefaultCacheLineSize) Price bestBidPrice_ = std::numeric_limits<Price>::min();
     alignas(kDefaultCacheLineSize) BidsT bids_;
 
-    alignas(kDefaultCacheLineSize) Price askPriceUpperBound_ = std::numeric_limits<Price>::min();
-    alignas(kDefaultCacheLineSize) Price askPriceLowerBound_ = std::numeric_limits<Price>::max();
+    alignas(kDefaultCacheLineSize) Price bestAskPrice_ = std::numeric_limits<Price>::max();
+    alignas(kDefaultCacheLineSize) AsksT asks_;*/
+
+    alignas(kDefaultCacheLineSize) Price bestBidPrice_ = std::numeric_limits<Price>::min();
+    //Price bestBidPrice_ = std::numeric_limits<Price>::min();
+    alignas(kDefaultCacheLineSize) BidsT bids_;
+
+    alignas(kDefaultCacheLineSize) Price bestAskPrice_ = std::numeric_limits<Price>::max();
+    //Price bestAskPrice_ = std::numeric_limits<Price>::max();
     alignas(kDefaultCacheLineSize) AsksT asks_;
 };
+

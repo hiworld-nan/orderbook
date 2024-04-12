@@ -18,7 +18,7 @@ int32_t main(int32_t argc, char* argv[]) {
     calibrateTsc();
 
     Broker broker;
-    Orderbook<100> zob;
+    Orderbook<10> zob;
     uint64_t beginTick = 0, endTick = 0, totalTick = 0;
     const int32_t constV = std::stoull(argv[1]);
     const float constFv = static_cast<float>(constV);
@@ -40,7 +40,7 @@ int32_t main(int32_t argc, char* argv[]) {
             }
             beginTick = rdtsc();
             broker.insertOrder(o);
-            // broker.getOrderBook(25, zob);
+            // broker.getOrderBook(10, zob);
             // showOrderBook(zob);
             endTick = rdtsc();
             totalTick += endTick - beginTick;
@@ -49,7 +49,7 @@ int32_t main(int32_t argc, char* argv[]) {
         std::cout << "build orderbook in :" << tsc2Ns(totalTick) / constFv << "ns" << std::endl;
 
         beginTick = rdtsc();
-        broker.getOrderBook(25, zob);
+        broker.getOrderBook(10, zob);
         endTick = rdtsc();
         showOrderBook(zob);
         std::cout << "the latency of getOrderBook is: " << tsc2Ns(endTick - beginTick) << "ns" << std::endl;
@@ -76,23 +76,23 @@ int32_t main(int32_t argc, char* argv[]) {
             beginTick = rdtsc();
             broker.insertOrder(o);
             // Preventing Optimization
-            // broker.getOrderBook(25,zob);
+            // broker.getOrderBook(10,zob);
             endTick = rdtsc();
             totalTick += endTick - beginTick;
 
             /*{
                 beginTick = rdtsc();
-                broker.getOrderBook(25,zob);
+                broker.getOrderBook(10,zob);
                 endTick = rdtsc();
                 showOrderBook(zob);
-                std::cout << "the delay for getOrderBook<25>: " << tsc2Ns(endTick - beginTick) << "ns" << std::endl;
+                std::cout << "the delay for getOrderBook<10>: " << tsc2Ns(endTick - beginTick) << "ns" << std::endl;
             }*/
         }
 
         std::cout << "each order is matched in :" << tsc2Ns(totalTick) / constFv << "ns" << std::endl;
 
         beginTick = rdtsc();
-        broker.getOrderBook(25, zob);
+        broker.getOrderBook(10, zob);
         endTick = rdtsc();
         showOrderBook(zob);
         std::cout << "the latency of getOrderBook is: " << tsc2Ns(endTick - beginTick) << "ns" << std::endl;

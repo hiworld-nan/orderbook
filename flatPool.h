@@ -43,7 +43,6 @@ struct FlatPool final {
         ~Chunk() {
             if (dataPtr_) {
                 delete[] dataPtr_;
-                dataPtr_ = nullptr;
             }
         }
 
@@ -74,7 +73,7 @@ struct FlatPool final {
         ChunkInfo() = default;
         ChunkInfo(const DataT* end, const DataT* begin = nullptr, int32_t index = SelfT::skInvalidIndex)
             : end_(end), begin_(begin), index_(index) {}
-        bool operator<(const ChunkInfo& other) const { return end_ < other.end_; }
+        inline bool operator<(const ChunkInfo& other) const { return end_ < other.end_; }
     } __attribute__((packed));
 
     FlatPool() = default;
@@ -87,13 +86,13 @@ struct FlatPool final {
     FlatPool& operator=(const FlatPool& other) = delete;
 
     DataT* alloc() {
-        if (freeIndex_ ^ SelfT::skInvalidIndex) {
+        if (freeIndex_ == SelfT::skInvalidIndex) [[likely]] {
+            ChunkT& chunkRef = getChunk();
+            return &chunkRef[++latestIndex_];
+        } else {
             DataT* data = &at(freeIndex_);
             freeIndex_ = *(reinterpret_cast<int32_t*>(data));
             return data;
-        } else {
-            ChunkT& chunkRef = getChunk();
-            return &chunkRef[++latestIndex_];
         }
     }
 
@@ -101,41 +100,41 @@ struct FlatPool final {
         if (!data) return;
 
         int32_t index = getIndex(data);
-        if (likely(index ^ SelfT::skInvalidIndex)) {
+        if (index ^ SelfT::skInvalidIndex) [[likely]] {
             *(reinterpret_cast<int32_t*>(const_cast<DataT*>(data))) = freeIndex_;
             freeIndex_ = index;
         }
     }
 
     std::pair<DataT*, uint32_t> allocate() {
-        if (freeIndex_ ^ SelfT::skInvalidIndex) {
+        if (freeIndex_ == SelfT::skInvalidIndex) [[likely]] {
+            ChunkT& chunkRef = getChunk();
+            return {&chunkRef[++latestIndex_], latestIndex_};
+        } else {
             const uint32_t index = freeIndex_;
             DataT* data = &at(freeIndex_);
             freeIndex_ = *(reinterpret_cast<int32_t*>(data));
             return {data, index};
-        } else {
-            ChunkT& chunkRef = getChunk();
-            return {&chunkRef[++latestIndex_], latestIndex_};
         }
     }
 
     void deallocate(uint32_t index) {
-        if (likely(index <= latestIndex_)) {
+        if (index <= latestIndex_) [[likely]] {
             *(reinterpret_cast<int32_t*>(&at(index))) = freeIndex_;
             freeIndex_ = index;
         }
     }
 
-    constexpr size_t max_size() const { return SelfT::skChunkCapcity * SelfT::skChunkCapacity; }
+    constexpr size_t max_size() const { return SelfT::skChunkCapacity * SelfT::skMaxChunkSize; }
 
-    DataT& at(uint32_t index) { return chunks_[index >> SelfT::skChunkCapacityExponent][index]; }
-    const DataT& at(uint32_t index) const { return chunks_[index >> SelfT::skChunkCapacityExponent][index]; }
+    inline DataT& at(uint32_t index) { return chunks_[index >> SelfT::skChunkCapacityExponent][index]; }
+    inline const DataT& at(uint32_t index) const { return chunks_[index >> SelfT::skChunkCapacityExponent][index]; }
 
    private:
     int32_t getIndex(const DataT* data) {
         const ChunkInfo entry{data};
         auto it = chunkSet_.upper_bound(entry);
-        if (it != chunkSet_.end() && data >= it->begin_) {
+        if (it != chunkSet_.end() && data >= it->begin_) [[likely]] {
             return (data - it->begin_) | (it->index_ << SelfT::skChunkCapacityExponent);
         }
         return SelfT::skInvalidIndex;
@@ -143,7 +142,7 @@ struct FlatPool final {
 
     ChunkT& getChunk() {
         const bool noNeedNewChunk = ((latestIndex_ + 1) & SelfT::skChunkCapacityMask);
-        if (likely(noNeedNewChunk)) {
+        if (noNeedNewChunk) [[likely]] {
             return chunks_[latestChunkIndex_];
         } else {
             ChunkT& chunkRef = chunks_[++latestChunkIndex_];
@@ -154,10 +153,10 @@ struct FlatPool final {
     }
 
    private:
-    int32_t freeIndex_ = SelfT::skInvalidIndex;
-    int32_t latestIndex_ = SelfT::skInvalidIndex;
-    int32_t latestChunkIndex_ = SelfT::skInvalidIndex;
+    alignas(kDefaultCacheLineSize) int32_t freeIndex_ = SelfT::skInvalidIndex;
+    alignas(kDefaultCacheLineSize) int32_t latestIndex_ = SelfT::skInvalidIndex;
+    alignas(kDefaultCacheLineSize) int32_t latestChunkIndex_ = SelfT::skInvalidIndex;
 
-    std::set<ChunkInfo> chunkSet_{};
-    ChunkT chunks_[SelfT::skMaxChunkSize];
+    alignas(kDefaultCacheLineSize) std::set<ChunkInfo> chunkSet_{};
+    alignas(kDefaultCacheLineSize) ChunkT chunks_[SelfT::skMaxChunkSize];
 };
