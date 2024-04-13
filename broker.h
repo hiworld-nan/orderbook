@@ -81,7 +81,7 @@ struct Broker {
     }
 
     template <size_t DEPTH>
-    void getOrderBook(size_t depth, Orderbook<DEPTH> &obRef) const {
+    void getOrderBook(Orderbook<DEPTH> &obRef, size_t depth = DEPTH) const {
         size_t i = 0;
         const size_t constMaxDepth = (depth > DEPTH) ? DEPTH : depth;
         for (auto it = bids_.begin(); it != bids_.end() && i < constMaxDepth; it++) {

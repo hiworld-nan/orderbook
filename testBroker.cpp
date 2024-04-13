@@ -40,7 +40,7 @@ int32_t main(int32_t argc, char* argv[]) {
             }
             beginTick = rdtsc();
             broker.insertOrder(o);
-            // broker.getOrderBook(10, zob);
+            // broker.getOrderBook(zob);
             // showOrderBook(zob);
             endTick = rdtsc();
             totalTick += endTick - beginTick;
@@ -49,7 +49,7 @@ int32_t main(int32_t argc, char* argv[]) {
         std::cout << "build orderbook in :" << tsc2Ns(totalTick) / constFv << "ns" << std::endl;
 
         beginTick = rdtsc();
-        broker.getOrderBook(10, zob);
+        broker.getOrderBook(zob);
         endTick = rdtsc();
         showOrderBook(zob);
         std::cout << "the latency of getOrderBook is: " << tsc2Ns(endTick - beginTick) << "ns" << std::endl;
@@ -76,13 +76,13 @@ int32_t main(int32_t argc, char* argv[]) {
             beginTick = rdtsc();
             broker.insertOrder(o);
             // Preventing Optimization
-            // broker.getOrderBook(10,zob);
+            // broker.getOrderBook(zob);
             endTick = rdtsc();
             totalTick += endTick - beginTick;
 
             /*{
                 beginTick = rdtsc();
-                broker.getOrderBook(10,zob);
+                broker.getOrderBook(zob);
                 endTick = rdtsc();
                 showOrderBook(zob);
                 std::cout << "the delay for getOrderBook<10>: " << tsc2Ns(endTick - beginTick) << "ns" << std::endl;
@@ -92,7 +92,7 @@ int32_t main(int32_t argc, char* argv[]) {
         std::cout << "each order is matched in :" << tsc2Ns(totalTick) / constFv << "ns" << std::endl;
 
         beginTick = rdtsc();
-        broker.getOrderBook(10, zob);
+        broker.getOrderBook(zob);
         endTick = rdtsc();
         showOrderBook(zob);
         std::cout << "the latency of getOrderBook is: " << tsc2Ns(endTick - beginTick) << "ns" << std::endl;
