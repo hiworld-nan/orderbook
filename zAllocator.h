@@ -42,10 +42,10 @@ struct zAllocator : public std::allocator<T> {
     template <class U>
     zAllocator(const zAllocator<U>&) noexcept {}
 
-    void deallocate(pointer p, size_type n = 1) { memPool_.dealloc(p); }
-    pointer allocate(size_type n, const void* hint = 0) { return memPool_.alloc(); }
+    void deallocate(pointer p, size_type n = 1) { memPool_.deallocate(p); }
+    pointer allocate(size_type n, const void* hint = 0) { return memPool_.allocate(); }
 
-    void destroy(pointer p) { memPool_.dealloc(p); }
+    void destroy(pointer p) { memPool_.deallocate(p); }
 
     template <class U = T, class... Params>
     void construct(U* p, Params&&... params) {

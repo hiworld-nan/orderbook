@@ -68,7 +68,7 @@ struct FlatPool final {
     FlatPool& operator=(FlatPool&& other) = delete;
     FlatPool& operator=(const FlatPool& other) = delete;
 
-    inline DataT* alloc() {
+    inline DataT* allocate() {
         if (freeIndex_ == SelfT::skInvalidIndex) [[likely]] {
             Chunk& chunkRef = getChunk();
             InnerData& dataRef = chunkRef[++latestIndex_];
@@ -81,8 +81,8 @@ struct FlatPool final {
         }
     }
 
-    // should safe-check
-    inline void dealloc(const DataT* data) {
+    // ? should safe-check
+    inline void deallocate(const DataT* data) {
         if (!data) return;
 
         InnerData* innerData = const_cast<InnerData*>(reinterpret_cast<const InnerData*>(data));
