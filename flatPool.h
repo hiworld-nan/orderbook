@@ -153,10 +153,10 @@ struct FlatPool final {
     }
 
    private:
-    alignas(kDefaultCacheLineSize) int32_t freeIndex_ = SelfT::skInvalidIndex;
-    alignas(kDefaultCacheLineSize) int32_t latestIndex_ = SelfT::skInvalidIndex;
-    alignas(kDefaultCacheLineSize) int32_t latestChunkIndex_ = SelfT::skInvalidIndex;
+    int32_t freeIndex_ = SelfT::skInvalidIndex;
+    int32_t latestIndex_ = SelfT::skInvalidIndex;
+    int32_t latestChunkIndex_ = SelfT::skInvalidIndex;
 
-    alignas(kDefaultCacheLineSize) std::set<ChunkInfo> chunkSet_{};
-    alignas(kDefaultCacheLineSize) ChunkT chunks_[SelfT::skMaxChunkSize];
+    ChunkT chunks_[SelfT::skMaxChunkSize];
+    std::set<ChunkInfo> chunkSet_{};
 };

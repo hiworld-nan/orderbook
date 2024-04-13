@@ -117,7 +117,7 @@ struct Broker {
                 }
             }
 
-            if (asks_.empty()) {
+            if (asks_.empty()) [[unlikely]] {
                 bestAskPrice_ = std::numeric_limits<Price>::max();
             }
         }
@@ -161,7 +161,7 @@ struct Broker {
                 }
             }
 
-            if (bids_.empty()) {
+            if (bids_.empty()) [[unlikely]] {
                 bestBidPrice_ = std::numeric_limits<Price>::min();
             }
         }
@@ -206,7 +206,7 @@ struct Broker {
                 }
             }
 
-            if (asks_.empty()) {
+            if (asks_.empty()) [[unlikely]] {
                 bestAskPrice_ = std::numeric_limits<Price>::max();
             }
         }
@@ -242,7 +242,7 @@ struct Broker {
                 }
             }
 
-            if (bids_.empty()) {
+            if (bids_.empty()) [[unlikely]] {
                 bestBidPrice_ = std::numeric_limits<Price>::min();
             }
         }
@@ -258,7 +258,7 @@ struct Broker {
     }
 
     void updateBidPriceBoundary(BidsT::iterator &it, Price price) {
-        if (!bids_.empty()) {
+        if (!bids_.empty()) [[likely]] {
             if (equal(price, bestBidPrice_)) {
                 bestBidPrice_ = it->first;
             }
@@ -268,7 +268,7 @@ struct Broker {
     }
 
     void updateAskPriceBoundary(AsksT::iterator &it, Price price) {
-        if (!asks_.empty()) {
+        if (!asks_.empty()) [[likely]] {
             if (equal(price, bestAskPrice_)) {
                 bestAskPrice_ = it->first;
             }
@@ -300,9 +300,9 @@ struct Broker {
     }
 
    private:
-    alignas(kDefaultCacheLineSize) Price bestBidPrice_ = std::numeric_limits<Price>::min();
-    alignas(kDefaultCacheLineSize) BidsT bids_;
+    Price bestBidPrice_ = std::numeric_limits<Price>::min();
+    BidsT bids_;
 
-    alignas(kDefaultCacheLineSize) Price bestAskPrice_ = std::numeric_limits<Price>::max();
-    alignas(kDefaultCacheLineSize) AsksT asks_;
+    Price bestAskPrice_ = std::numeric_limits<Price>::max();
+    AsksT asks_;
 };
