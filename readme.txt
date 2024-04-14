@@ -1,3 +1,9 @@
+Further optimization measures:
+1. Convert floating-point operations to integer operations.
+2. Pre-allocate memory resources, pre-warm and lock them.
+3. Replace std::map with custom data structures.
+4. Calculate ticks per second more accurately.
+
 In common trading software, real-time display of stock buy and sell order book quotations typically 
 involves N levels of the current best pending buy and sell order prices and quantities. We refer to 
 this as the N-Order Book.  

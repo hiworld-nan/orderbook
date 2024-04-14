@@ -42,22 +42,22 @@ struct zAllocator : public std::allocator<T> {
     template <class U>
     zAllocator(const zAllocator<U>&) noexcept {}
 
-    void deallocate(pointer p, size_type n = 1) { memPool_.deallocate(p); }
-    pointer allocate(size_type n, const void* hint = 0) { return memPool_.allocate(); }
+    inline void deallocate(pointer p, size_type n = 1) { memPool_.deallocate(p); }
+    inline pointer allocate(size_type n, const void* hint = 0) { return memPool_.allocate(); }
 
-    void destroy(pointer p) { memPool_.deallocate(p); }
+    inline void destroy(pointer p) { memPool_.deallocate(p); }
 
     template <class U = T, class... Params>
-    void construct(U* p, Params&&... params) {
+    inline void construct(U* p, Params&&... params) {
         ::new (p) U(std::forward<Params>(params)...);
     }
     void construct(pointer p, const T& value) { ::new (p) T(value); }
 
-    pointer address(reference ref) { return &ref; }
-    const_pointer address(const_reference cref) { return &cref; }
+    inline pointer address(reference ref) { return &ref; }
+    inline const_pointer address(const_reference cref) { return &cref; }
 
-    size_type max_size() const { return memPool_.max_size(); }
-    FlatPool<T>& get_pool() { return memPool_; }
+    inline size_type max_size() const { return memPool_.max_size(); }
+    inline FlatPool<T>& get_pool() { return memPool_; }
 
    private:
     FlatPool<T> memPool_;

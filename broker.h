@@ -15,9 +15,6 @@
 #include "type.h"
 #include "zAllocator.h"
 
-// todo:
-//  1.custom datastructure for Bids&Asks
-//  2.custom allocator with pre-allocated memory resource to avoid page fault
 // not thread safe
 struct Broker {
     using BidsT = std::map<Price, Qty, std::greater<Price>, zAllocator<std::pair<const Price, Qty>>>;
@@ -260,7 +257,7 @@ struct Broker {
         // risk control should handle this
     }
 
-    void updateBidPriceBoundary(BidsT::iterator &it, Price price) {
+    inline void updateBidPriceBoundary(BidsT::iterator &it, Price price) {
         if (!bids_.empty()) [[likely]] {
             if (equal(price, bestBidPrice_)) {
                 bestBidPrice_ = it->first;
@@ -270,7 +267,7 @@ struct Broker {
         }
     }
 
-    void updateAskPriceBoundary(AsksT::iterator &it, Price price) {
+    inline void updateAskPriceBoundary(AsksT::iterator &it, Price price) {
         if (!asks_.empty()) [[likely]] {
             if (equal(price, bestAskPrice_)) {
                 bestAskPrice_ = it->first;
