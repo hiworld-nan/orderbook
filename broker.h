@@ -138,7 +138,7 @@ struct Broker {
         Qty remainQty = buyOrder.remainQty_;
         auto it = bids_.find(buyOrder.price_);
         if (it != bids_.end()) {
-            if (it->second > remainQty) {
+            if (it->second > remainQty) [[likely]] {
                 it->second -= remainQty;
             } else {
                 it = bids_.erase(it);
@@ -181,7 +181,7 @@ struct Broker {
         Qty remainQty = sellOrder.remainQty_;
         auto it = asks_.find(sellOrder.price_);
         if (it != asks_.end()) {
-            if (it->second > remainQty) {
+            if (it->second > remainQty) [[likely]] {
                 it->second -= remainQty;
             } else {
                 it = asks_.erase(it);
