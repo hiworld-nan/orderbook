@@ -15,6 +15,9 @@
 #include "type.h"
 #include "zAllocator.h"
 
+// todo:
+//  1.custom datastructure for Bids&Asks
+//  2.custom allocator with pre-allocated memory resource to avoid page fault
 // not thread safe
 struct Broker {
     using BidsT = std::map<Price, Qty, std::greater<Price>, zAllocator<std::pair<const Price, Qty>>>;

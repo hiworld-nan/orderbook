@@ -85,11 +85,10 @@ struct FlatPool final {
     inline void deallocate(const DataT* data) {
         if (!data) return;
 
-        InnerData* innerData = const_cast<InnerData*>(reinterpret_cast<const InnerData*>(data));
-        int32_t index = innerData->index_;
-        if (index ^ SelfT::skInvalidIndex) [[likely]] {
+        const InnerData* innerData = reinterpret_cast<const InnerData*>(data);
+        if (innerData->index_ ^ SelfT::skInvalidIndex) [[likely]] {
             *(reinterpret_cast<int32_t*>(const_cast<DataT*>(data))) = freeIndex_;
-            freeIndex_ = index;
+            freeIndex_ = innerData->index_;
         }
     }
 
