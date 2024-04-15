@@ -4,8 +4,8 @@ Source = $(wildcard ./*.cpp)
 Object = $(patsubst %.cpp, %.o, $(Source))
 
 CFlags = -Wall -std=c++2b -m64
-OFlags = -Ofast -mtune=native -march=native
-LDFlags = -v -lpthread -fopenmp
+OFlags = -Ofast -march=native
+LDFlags = -v
 
 CurrDir = ./
 IncludeDir = -I./$(CurrDir)

@@ -63,21 +63,25 @@ static NoInline uint64_t getTicksOfPause() {
 }
 #pragma GCC pop_options
 
+static void pollDelay(uint32_t cycles) {
+    uint64_t endTick = rdtsc() + cycles;
+    while (rdtsc() < endTick) {
+        asm volatile("pause" :::);
+    }
+}
+
 template <uint32_t LOOP = 371>
 static NoInline uint64_t calibrateTsc() {
     std::timespec ts, te;
     uint64_t tss = 0, tse = 0, tes = 0, tee = 0;
     uint64_t deltaStart = 0, deltaEnd = 0, deltaMin = ~0;
-
-    const long durationUs = 20000 * TimeConstant::skNsPerUs;
-    struct timespec sleep_time = {0, durationUs};
     double freq = 0.0, billion = TimeConstant::skNsPerSecond;
     for (uint32_t i = 0; i < LOOP; i++) {
         tss = rdtsc();
         clock_gettime(CLOCK_MONOTONIC, &ts);
         tse = rdtsc();
 
-        nanosleep(&sleep_time, nullptr);
+        pollDelay(TimeConstant::skNsPerMs * 31);
 
         tes = rdtsc();
         clock_gettime(CLOCK_MONOTONIC, &te);
