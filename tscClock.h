@@ -40,7 +40,7 @@ static ForceInline uint64_t rdtsc() {
 
 #pragma GCC push_options
 #pragma GCC optimize("O0")
-template <uint32_t LOOP = 71>
+template <uint32_t LOOP = 371>
 static NoInline uint64_t getTicksOfPause() {
     int32_t i = 0;
     uint64_t beginTick = 0, endTick = 0;
@@ -60,7 +60,7 @@ static NoInline uint64_t getTicksOfPause() {
     return TimeConstant::skTicksPerPause = (endTick - beginTick) / (i + 1);
 }
 
-template <uint32_t LOOP = 71>
+template <uint32_t LOOP = 371>
 static NoInline uint64_t calibrateTsc() {
     std::timespec ts, te;
     uint64_t tss = 0, tse = 0, tes = 0, tee = 0;
