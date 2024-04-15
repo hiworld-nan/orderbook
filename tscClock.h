@@ -1,5 +1,6 @@
 #pragma once
 
+// #include <x86intrin.h>
 #include <chrono>
 #include <cstdint>
 #include <ctime>
@@ -10,7 +11,8 @@
 struct alignas(kDefaultCacheLineSize) TimeConstant {
     static inline double skNsPerTick = 1ul;
     static inline double skTickPerNs = 1ul;
-    static inline uint64_t skTicksPerPause = 1ul;
+    // about 10 ticks per pause for intel cpu
+    static inline uint64_t skTicksPerPause = 10ul;
     static inline uint64_t skTicksPerSecond = 1'000'000'000ul;
 
     static constexpr uint64_t skNsPerUs = 1'000ul;
@@ -36,6 +38,7 @@ static ForceInline uint64_t rdtsc() {
 
     asm volatile("rdtsc\n" : "=a"(tsc.lo), "=d"(tsc.hi), "=c"(aux)::);
     return tsc.cycle;
+    // return _rdtsc();
 }
 
 #pragma GCC push_options
@@ -55,10 +58,12 @@ static NoInline uint64_t getTicksOfPause() {
     beginTick = rdtsc();
     for (i = 0; i < LOOP; i++) {
         asm volatile("pause" :::);
+        //_mm_pause();
     }
     endTick = rdtsc();
     return TimeConstant::skTicksPerPause = (endTick - beginTick) / (i + 1);
 }
+#pragma GCC pop_options
 
 template <uint32_t LOOP = 371>
 static NoInline uint64_t calibrateTsc() {
@@ -93,7 +98,6 @@ static NoInline uint64_t calibrateTsc() {
     TimeConstant::skTickPerNs = freq / TimeConstant::skNsPerSecond;
     return TimeConstant::skTicksPerSecond = static_cast<uint64_t>(freq);
 }
-#pragma GCC pop_options
 
 static ForceInline uint64_t ns2Tsc(const uint64_t ns) { return static_cast<uint64_t>(ns * TimeConstant::skTickPerNs); }
 static ForceInline uint64_t tsc2Ns(const uint64_t tsc) {
