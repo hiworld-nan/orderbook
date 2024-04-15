@@ -142,7 +142,6 @@ struct Broker {
                 updateBidPriceBoundary(it, buyOrder.price_);
             }
         }
-        // if shouldBeCancel == false then send error rsp to trader in matching engine
     }
 
     void onLimitSellOrder(const Order &sellOrder) {

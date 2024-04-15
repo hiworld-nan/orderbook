@@ -7,17 +7,24 @@
 #include <thread>
 #include "util.h"
 
-static inline uint64_t skTicksPerSecond = 1'000'000'000ul;
+struct alignas(kDefaultCacheLineSize) TimeConstant {
+    static inline double skNsPerTick = 1ul;
+    static inline double skTickPerNs = 1ul;
+    static inline uint64_t skTicksPerPause = 1ul;
+    static inline uint64_t skTicksPerSecond = 1'000'000'000ul;
 
-static constexpr uint64_t skUsPerMs = 1'000ul;
-static constexpr uint64_t skNsPerMs = 1'000'000ul;
-static constexpr uint64_t skNsPerUs = 1'000ul;
+    static constexpr uint64_t skNsPerUs = 1'000ul;
+    static constexpr uint64_t skUsPerMs = 1'000ul;
+    static constexpr uint64_t skNsPerMs = 1'000'000ul;
 
-static constexpr uint64_t skNsPerSecond = 1'000'000'000ul;
-static constexpr uint64_t skUsPerSecond = 1'000'000ul;
-static constexpr uint64_t skMsPerSecond = 1'000ul;
+    static constexpr uint64_t skMsPerSecond = 1'000ul;
+    static constexpr uint64_t skUsPerSecond = 1'000'000ul;
+    static constexpr uint64_t skNsPerSecond = 1'000'000'000ul;
 
-static inline uint64_t rdtsc() {
+    static constexpr uint64_t skReserved[6] = {0};
+};
+
+static ForceInline uint64_t rdtsc() {
     uint32_t aux = 0;
     union {
         uint64_t cycle;
@@ -31,15 +38,37 @@ static inline uint64_t rdtsc() {
     return tsc.cycle;
 }
 
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+template <uint32_t LOOP = 71>
+static NoInline uint64_t getTicksOfPause() {
+    int32_t i = 0;
+    uint64_t beginTick = 0, endTick = 0;
+
+    // warm-up
+    do {
+        beginTick = rdtsc();
+        asm volatile("pause" :::);
+        endTick = rdtsc();
+    } while (i++ < LOOP);
+
+    beginTick = rdtsc();
+    for (i = 0; i < LOOP; i++) {
+        asm volatile("pause" :::);
+    }
+    endTick = rdtsc();
+    return TimeConstant::skTicksPerPause = (endTick - beginTick) / (i + 1);
+}
+
 template <uint32_t LOOP = 71>
 static NoInline uint64_t calibrateTsc() {
     std::timespec ts, te;
     uint64_t tss = 0, tse = 0, tes = 0, tee = 0;
     uint64_t deltaStart = 0, deltaEnd = 0, deltaMin = ~0;
 
-    const long durationUs = 20000 * skNsPerUs;
+    const long durationUs = 20000 * TimeConstant::skNsPerUs;
     struct timespec sleep_time = {0, durationUs};
-    double freq = 0.0, billion = skNsPerSecond;
+    double freq = 0.0, billion = TimeConstant::skNsPerSecond;
     for (uint32_t i = 0; i < LOOP; i++) {
         tss = rdtsc();
         clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -60,8 +89,13 @@ static NoInline uint64_t calibrateTsc() {
         }
     }
 
-    return skTicksPerSecond = static_cast<uint64_t>(freq);
+    TimeConstant::skNsPerTick = TimeConstant::skNsPerSecond / freq;
+    TimeConstant::skTickPerNs = freq / TimeConstant::skNsPerSecond;
+    return TimeConstant::skTicksPerSecond = static_cast<uint64_t>(freq);
 }
+#pragma GCC pop_options
 
-static ForceInline uint64_t ns2Tsc(const uint64_t ns) { return ((ns)*skTicksPerSecond / skNsPerSecond); }
-static ForceInline uint64_t tsc2Ns(const uint64_t tsc) { return ((tsc)*skNsPerSecond / skTicksPerSecond); }
+static ForceInline uint64_t ns2Tsc(const uint64_t ns) { return static_cast<uint64_t>(ns * TimeConstant::skTickPerNs); }
+static ForceInline uint64_t tsc2Ns(const uint64_t tsc) {
+    return static_cast<uint64_t>(tsc * TimeConstant::skNsPerTick);
+}

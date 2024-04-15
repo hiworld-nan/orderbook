@@ -16,6 +16,7 @@ int32_t main(int32_t argc, char* argv[]) {
     }
 
     calibrateTsc();
+    std::cout << "TicksPerSecond:" << TimeConstant::skTicksPerSecond << std::endl;
 
     Broker broker;
     Orderbook<10> zob;
