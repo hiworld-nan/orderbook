@@ -22,8 +22,6 @@ struct alignas(kDefaultCacheLineSize) TimeConstant {
     static constexpr uint64_t skMsPerSecond = 1'000ul;
     static constexpr uint64_t skUsPerSecond = 1'000'000ul;
     static constexpr uint64_t skNsPerSecond = 1'000'000'000ul;
-
-    static constexpr uint64_t skReserved[6] = {0};
 };
 
 static ForceInline uint64_t rdtsc() {
