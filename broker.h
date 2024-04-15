@@ -125,7 +125,7 @@ struct Broker {
         // consider that time priority including GTC/FOK/IOC,
         // only GTC&FAK order be handled here
         if (remainQty) {
-            updateBidOrderBook(buyOrder, remainQty);
+            updateBids(buyOrder, remainQty);
         }
     }
 
@@ -139,7 +139,7 @@ struct Broker {
                 it->second -= remainQty;
             } else {
                 it = bids_.erase(it);
-                updateBidPriceBoundary(it, buyOrder.price_);
+                updateBestBidPrice(it, buyOrder.price_);
             }
         }
     }
@@ -168,7 +168,7 @@ struct Broker {
         // consider that time priority including GTC/FOK/IOC,
         // only GTC&FAK order be handled here
         if (remainQty) {
-            updateAskOrderBook(sellOrder, remainQty);
+            updateAsks(sellOrder, remainQty);
         }
     }
 
@@ -181,7 +181,7 @@ struct Broker {
                 it->second -= remainQty;
             } else {
                 it = asks_.erase(it);
-                updateAskPriceBoundary(it, sellOrder.price_);
+                updateBestAskPrice(it, sellOrder.price_);
             }
         }
     }
@@ -256,9 +256,9 @@ struct Broker {
         // risk control should handle this
     }
 
-    inline void updateBidPriceBoundary(BidsT::iterator &it, Price price) {
+    inline void updateBestBidPrice(BidsT::iterator &it, Price price) {
         if (!bids_.empty()) [[likely]] {
-            if (equal(price, bestBidPrice_)) {
+            if (equal(price, bestBidPrice_)) [[unlikely]] {
                 bestBidPrice_ = it->first;
             }
         } else {
@@ -266,9 +266,9 @@ struct Broker {
         }
     }
 
-    inline void updateAskPriceBoundary(AsksT::iterator &it, Price price) {
+    inline void updateBestAskPrice(AsksT::iterator &it, Price price) {
         if (!asks_.empty()) [[likely]] {
-            if (equal(price, bestAskPrice_)) {
+            if (equal(price, bestAskPrice_)) [[unlikely]] {
                 bestAskPrice_ = it->first;
             }
         } else {
@@ -276,7 +276,7 @@ struct Broker {
         }
     }
 
-    void updateAskOrderBook(const Order &orderRef, Qty remainQty) {
+    void updateAsks(const Order &orderRef, Qty remainQty) {
         auto result = asks_.emplace(orderRef.price_, remainQty);
         if (!result.second) {
             result.first->second += remainQty;
@@ -287,7 +287,7 @@ struct Broker {
         }
     }
 
-    void updateBidOrderBook(const Order &orderRef, Qty remainQty) {
+    void updateBids(const Order &orderRef, Qty remainQty) {
         auto result = bids_.emplace(orderRef.price_, remainQty);
         if (!result.second) {
             result.first->second += remainQty;
