@@ -8,7 +8,7 @@
 #include <thread>
 #include "util.h"
 
-struct alignas(kDefaultCacheLineSize) TimeConstant {
+struct TimeConstant {
     static inline double skNsPerTick = 1ul;
     static inline double skTickPerNs = 1ul;
     // about 10 ticks per pause for intel cpu
@@ -34,7 +34,7 @@ static ForceInline uint64_t rdtsc() {
         };
     } tsc = {0};
 
-    asm volatile("rdtsc\n" : "=a"(tsc.lo), "=d"(tsc.hi), "=c"(aux)::);
+    asm volatile("rdtsc" : "=a"(tsc.lo), "=d"(tsc.hi), "=c"(aux)::);
     return tsc.cycle;
     // return _rdtsc();
 }
