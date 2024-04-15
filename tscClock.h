@@ -101,7 +101,5 @@ static NoInline uint64_t calibrateTsc() {
     return TimeConstant::skTicksPerSecond = static_cast<uint64_t>(freq);
 }
 
-static ForceInline uint64_t ns2Tsc(const uint64_t ns) { return static_cast<uint64_t>(ns * TimeConstant::skTickPerNs); }
-static ForceInline uint64_t tsc2Ns(const uint64_t tsc) {
-    return static_cast<uint64_t>(tsc * TimeConstant::skNsPerTick);
-}
+static ForceInline uint64_t ns2Tsc(uint64_t ns) { return static_cast<uint64_t>(ns * TimeConstant::skTickPerNs); }
+static ForceInline uint64_t tsc2Ns(uint64_t tsc) { return static_cast<uint64_t>(tsc * TimeConstant::skNsPerTick); }
