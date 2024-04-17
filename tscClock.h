@@ -71,10 +71,6 @@ struct TscClock {
     void delayNs(uint32_t ns) {
         const double delayCycles = ns * ticksPerNs_;
         uint64_t endTick = rdTsc() + delayCycles - delayNsOffsetTicks_;
-        /*if (ns < delayNsOffsetNs_) {
-            rdTsc();
-            return;
-        }*/
         while (rdTsc() < endTick) {
             asm volatile("pause" :::);
         }
