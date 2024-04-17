@@ -7,8 +7,6 @@
 #include <utility>
 #include "util.h"
 
-using namespace std;
-
 template <class T>
 struct FlatPool final {
     using DataT = T;

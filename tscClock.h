@@ -1,20 +1,14 @@
 #pragma once
 
 // #include <x86intrin.h>
-#include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <ctime>
 #include <iomanip>
-#include <thread>
+#include <iostream>
 #include "util.h"
 
 struct TimeConstant {
-    static inline double skNsPerTick = 1ul;
-    static inline double skTickPerNs = 1ul;
-    // about 10 ticks per pause for intel cpu
-    static inline uint64_t skTicksPerPause = 10ul;
-    static inline uint64_t skTicksPerSecond = 1'000'000'000ul;
-
     static constexpr uint64_t skNsPerUs = 1'000ul;
     static constexpr uint64_t skUsPerMs = 1'000ul;
     static constexpr uint64_t skNsPerMs = 1'000'000ul;
@@ -24,82 +18,129 @@ struct TimeConstant {
     static constexpr uint64_t skNsPerSecond = 1'000'000'000ul;
 };
 
-static ForceInline uint64_t rdtsc() {
-    uint32_t aux = 0;
-    union {
-        uint64_t cycle;
-        struct {
-            uint32_t lo;
-            uint32_t hi;
-        };
-    } tsc = {0};
+struct TscClock {
+    static constexpr uint32_t kLoopCnt = 71;
+    static constexpr uint32_t kMultiplier = 17;
+    static constexpr uint32_t kDelayOffsetMultiplier = 12345;
 
-    asm volatile("rdtsc" : "=a"(tsc.lo), "=d"(tsc.hi), "=c"(aux)::);
-    return tsc.cycle;
-    // return _rdtsc();
-}
-
-#pragma GCC push_options
-#pragma GCC optimize("O0")
-template <uint32_t LOOP = 371>
-static NoInline uint64_t getTicksOfPause() {
-    int32_t i = 0;
-    uint64_t beginTick = 0, endTick = 0;
-
-    // warm-up
-    do {
-        beginTick = rdtsc();
-        asm volatile("pause" :::);
-        endTick = rdtsc();
-    } while (i++ < LOOP);
-
-    beginTick = rdtsc();
-    for (i = 0; i < LOOP; i++) {
-        asm volatile("pause" :::);
-        //_mm_pause();
+    static TscClock& getInstance() {
+        static TscClock clockInstance;
+        return clockInstance;
     }
-    endTick = rdtsc();
-    return TimeConstant::skTicksPerPause = (endTick - beginTick) / (i + 1);
-}
-#pragma GCC pop_options
 
-static void pollDelay(uint32_t cycles) {
-    uint64_t endTick = rdtsc() + cycles;
-    while (rdtsc() < endTick) {
-        asm volatile("pause" :::);
+    void show() {
+        std::cout << "ticksPerSecond:" << ticksPerSecond_ << std::endl;
+        std::cout << "nsPerTick:" << nsPerTick_ << std::endl;
+        std::cout << "ticksPerNs:" << ticksPerNs_ << std::endl;
+        std::cout << "delayNsOffsetTicks_:" << delayNsOffsetTicks_ << std::endl;
+        std::cout << "delayNsOffsetNs:" << delayNsOffsetNs_ << std::endl;
     }
-}
 
-template <uint32_t LOOP = 371>
-static NoInline uint64_t calibrateTsc() {
-    std::timespec ts, te;
-    uint64_t tss = 0, tse = 0, tes = 0, tee = 0;
-    uint64_t deltaStart = 0, deltaEnd = 0, deltaMin = ~0;
-    double freq = 0.0, billion = TimeConstant::skNsPerSecond;
-    for (uint32_t i = 0; i < LOOP; i++) {
-        tss = rdtsc();
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-        tse = rdtsc();
+    void calibrate(uint32_t loopCnt = kLoopCnt) {
+        loopCnt = (loopCnt < kLoopCnt) ? kLoopCnt : loopCnt;
+        calibrateTsc(loopCnt);
+        calibrateDelayNsOffset(loopCnt);
+    }
 
-        pollDelay(TimeConstant::skNsPerMs * 31);
+    uint64_t rdTsc() const {
+        union {
+            uint64_t cycle;
+            struct {
+                uint32_t lo;
+                uint32_t hi;
+            };
+        } tsc = {0};
 
-        tes = rdtsc();
-        clock_gettime(CLOCK_MONOTONIC, &te);
-        tee = rdtsc();
+        asm volatile("rdtsc" : "=a"(tsc.lo), "=d"(tsc.hi)::);
+        return tsc.cycle;
+    };
 
-        deltaStart = tse - tss;
-        deltaEnd = tee - tes;
-        if ((deltaStart + deltaEnd) < deltaMin) {
-            freq = (te.tv_sec - ts.tv_sec) * billion + te.tv_nsec - ts.tv_nsec;
-            freq = (tes - tse) * (billion / freq);
-            deltaMin = deltaStart + deltaEnd;
+    inline uint64_t rdNs() const { return tsc2Ns(rdTsc()); }
+    inline uint64_t tsc2Ns(uint64_t tsc) const { return static_cast<uint64_t>(tsc * nsPerTick_); }
+    inline uint64_t tsc2Sec(uint64_t tsc) const { return static_cast<uint64_t>(tsc / ticksPerSecond_); }
+
+    void delayCycles(uint32_t cycles) {
+        const uint64_t endTick = rdTsc() + cycles;
+        while (rdTsc() < endTick) {
+            asm volatile("pause" :::);
         }
     }
 
-    TimeConstant::skNsPerTick = TimeConstant::skNsPerSecond / freq;
-    TimeConstant::skTickPerNs = freq / TimeConstant::skNsPerSecond;
-    return TimeConstant::skTicksPerSecond = static_cast<uint64_t>(freq);
-}
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+    void delayNs(uint32_t ns) {
+        const double delayCycles = ns * ticksPerNs_;
+        uint64_t endTick = rdTsc() + delayCycles - delayNsOffsetTicks_;
+        /*if (ns < delayNsOffsetNs_) {
+            rdTsc();
+            return;
+        }*/
+        while (rdTsc() < endTick) {
+            asm volatile("pause" :::);
+        }
+    }
+#pragma GCC pop_options
 
-static ForceInline uint64_t ns2Tsc(uint64_t ns) { return static_cast<uint64_t>(ns * TimeConstant::skTickPerNs); }
-static ForceInline uint64_t tsc2Ns(uint64_t tsc) { return static_cast<uint64_t>(tsc * TimeConstant::skNsPerTick); }
+   private:
+    TscClock() = default;
+    ~TscClock() = default;
+
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+    void calibrateTsc(uint32_t loopCnt = kLoopCnt) {
+        uint64_t billion = TimeConstant::skNsPerSecond;
+        std::timespec beginTime = {0, 0}, endTime = {0, 0};
+
+        uint64_t intervalTsc = 0, intervalNs = 0;
+        uint64_t deltaInitial = 0, deltaTerminate = 0, deltaTotal = 0, deltaMin = ~0;
+        uint64_t initialBeginTsc = 0, initialEndTsc = 0, terminateBeginTsc = 0, terminateEndTsc = 0;
+        for (uint32_t i = 0; i < loopCnt; i++) {
+            initialBeginTsc = rdTsc();
+            clock_gettime(CLOCK_MONOTONIC_RAW, &beginTime);
+            initialEndTsc = rdTsc();
+
+            for (uint64_t i = 0; i < TimeConstant::skNsPerMs * kMultiplier; i++) {
+                asm volatile("pause" :::);
+            }
+
+            terminateBeginTsc = rdTsc();
+            clock_gettime(CLOCK_MONOTONIC_RAW, &endTime);
+            terminateEndTsc = rdTsc();
+
+            deltaInitial = initialEndTsc - initialBeginTsc;
+            deltaTerminate = terminateEndTsc - terminateBeginTsc;
+            deltaTotal = deltaInitial + deltaTerminate;
+            if (deltaTotal < deltaMin) {
+                deltaMin = deltaTotal;
+                intervalTsc = terminateBeginTsc - initialEndTsc;
+                intervalNs = (endTime.tv_sec - beginTime.tv_sec) * billion + endTime.tv_nsec - beginTime.tv_nsec;
+
+                ticksPerNs_ = intervalTsc / static_cast<double>(intervalNs);
+                nsPerTick_ = static_cast<double>(intervalNs) / intervalTsc;
+                ticksPerSecond_ = intervalTsc / static_cast<double>(intervalNs) * billion;
+            }
+        }
+    }
+
+    void calibrateDelayNsOffset(uint32_t loopCnt = kLoopCnt) {
+        delayNsOffsetTicks_ = 0.0;
+        delayNsOffsetNs_ = 0.0;
+        loopCnt = loopCnt * kMultiplier * kDelayOffsetMultiplier;
+        uint64_t beginTick = rdTsc();
+        for (uint32_t i = 0; i < loopCnt; i++) {
+            delayNs(1);
+        }
+        uint64_t endTick = rdTsc();
+        delayNsOffsetTicks_ = static_cast<double>(endTick - beginTick) / loopCnt;
+        delayNsOffsetNs_ = delayNsOffsetTicks_ * nsPerTick_;
+    }
+#pragma GCC pop_options
+
+   private:
+    alignas(kDefaultCacheLineSize) double ticksPerSecond_ = 1.0;
+    double nsPerTick_ = 1.0;
+    double ticksPerNs_ = 1.0;
+
+    double delayNsOffsetTicks_ = 0.0;
+    double delayNsOffsetNs_ = 0.0;
+};
