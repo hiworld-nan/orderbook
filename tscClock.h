@@ -55,7 +55,7 @@ struct TscClock {
         return tsc.cycle;
     };
 
-    inline uint64_t rdNs() const { return tsc2Ns(rdTsc()); }
+    uint64_t rdNs() const { return tsc2Ns(rdTsc()); }
     inline uint64_t tsc2Ns(uint64_t tsc) const { return static_cast<uint64_t>(tsc * nsPerTick_); }
     inline uint64_t tsc2Sec(uint64_t tsc) const { return static_cast<uint64_t>(tsc / ticksPerSecond_); }
 
@@ -66,6 +66,7 @@ struct TscClock {
         }
     }
 
+    // todo: use tpause/umwait implement delayNs
 #pragma GCC push_options
 #pragma GCC optimize("O0")
     void delayNs(uint32_t ns) {
