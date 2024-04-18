@@ -7,12 +7,9 @@
 #include <map>
 #include <memory>
 #include <utility>
-#include <vector>
-#include "flatPool.h"
 #include "floatOp.h"
 #include "message.h"
 #include "tscClock.h"
-#include "type.h"
 #include "zAllocator.h"
 
 // not thread safe
@@ -60,6 +57,10 @@ struct Broker {
     }
 
     void cancelOrder(const Order &order) {
+        if (order.orderStatus_ != OrderStatus::Cancelled) {
+            return;
+        }
+
         switch (order.type_) {
             case OrderType::Limit: {
                 switch (order.side_) {

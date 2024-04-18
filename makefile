@@ -10,21 +10,16 @@ LDFlags = -v
 CurrDir = ./
 IncludeDir = -I./$(CurrDir)
 
-all: tob tc
+all: tob
 
 $(Object):%.o: %.cpp
 	$(CC) $(CFlags) $(OFlags) $(IncludeDir) -c $< -o $@
 
-tob: testBroker.o
-	$(CC) -o $@ $^ $(LDFlags)
-	$(shell [ ! -d ./bin ] && mkdir -p ./bin )
-	mv $@ ./bin
-
-tc: testTscClock.o
+tob: $(Object)
 	$(CC) -o $@ $^ $(LDFlags)
 	$(shell [ ! -d ./bin ] && mkdir -p ./bin )
 	mv $@ ./bin
 
 .PHONY: clean
 clean:
-	-rm -f ./bin/tob ./bin/tc $(Object)
+	-rm -f ./bin/tob $(Object)

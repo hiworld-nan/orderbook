@@ -65,7 +65,7 @@ struct Order {
     int32_t sid_ = -1;
 
     QuoteType side_ = QuoteType::Buy;
-    // OrderStatus orderStatus_ = OrderStatus::Unknown;
+    OrderStatus orderStatus_ = OrderStatus::Unknown;
     OrderType type_ = OrderType::Limit;
     Offset offset_ = Offset::Unknown;
     TimeInForce tif_ = TimeInForce::Unknown;
@@ -111,4 +111,3 @@ struct Orderbook {
     const PriceLevel &bid(uint32_t i) const { return bids_[i]; }
     const PriceLevel &ask(uint32_t i) const { return asks_[i]; }
 } __attribute__((packed));
-

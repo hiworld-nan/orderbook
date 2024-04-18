@@ -19,8 +19,8 @@ struct TimeConstant {
 };
 
 struct TscClock {
-    static constexpr uint32_t kLoopCnt = 71;
-    static constexpr uint32_t kMultiplier = 17;
+    static constexpr uint32_t kCalibrateLoopCnt = 71;
+    static constexpr uint32_t kPauseMultiplier = 17;
     static constexpr uint32_t kDelayOffsetMultiplier = 12345;
 
     static TscClock& getInstance() {
@@ -36,14 +36,14 @@ struct TscClock {
         std::cout << "delayNsOffsetNs:" << delayNsOffsetNs_ << std::endl;
     }
 
-    void calibrate(uint32_t loopCnt = kLoopCnt) {
-        loopCnt = (loopCnt < kLoopCnt) ? kLoopCnt : loopCnt;
+    void calibrate(uint32_t loopCnt = kCalibrateLoopCnt) {
+        loopCnt = (loopCnt < kCalibrateLoopCnt) ? kCalibrateLoopCnt : loopCnt;
         calibrateTsc(loopCnt);
         calibrateDelayNsOffset(loopCnt);
     }
 
     uint64_t rdTsc() const {
-        union {
+        /*union {
             uint64_t cycle;
             struct {
                 uint32_t lo;
@@ -52,7 +52,8 @@ struct TscClock {
         } tsc = {0};
 
         asm volatile("rdtsc" : "=a"(tsc.lo), "=d"(tsc.hi)::);
-        return tsc.cycle;
+        return tsc.cycle;*/
+        return __builtin_ia32_rdtsc();
     };
 
     uint64_t rdNs() const { return tsc2Ns(rdTsc()); }
@@ -62,18 +63,19 @@ struct TscClock {
     void delayCycles(uint32_t cycles) {
         const uint64_t endTick = rdTsc() + cycles;
         while (rdTsc() < endTick) {
-            asm volatile("pause" :::);
+            // asm volatile("pause" :::);
+            __builtin_ia32_pause();
         }
     }
 
-    // todo: use tpause/umwait implement delayNs
+// todo: Implement delayNs using umwait/tpause.
 #pragma GCC push_options
 #pragma GCC optimize("O0")
     void delayNs(uint32_t ns) {
-        const double delayCycles = ns * ticksPerNs_;
-        uint64_t endTick = rdTsc() + delayCycles - delayNsOffsetTicks_;
+        const uint64_t endTick = rdTsc() + ns * ticksPerNs_ - delayNsOffsetTicks_;
         while (rdTsc() < endTick) {
-            asm volatile("pause" :::);
+            // asm volatile("pause" :::);
+            __builtin_ia32_pause();
         }
     }
 #pragma GCC pop_options
@@ -84,7 +86,7 @@ struct TscClock {
 
 #pragma GCC push_options
 #pragma GCC optimize("O0")
-    void calibrateTsc(uint32_t loopCnt = kLoopCnt) {
+    void calibrateTsc(uint32_t loopCnt = kCalibrateLoopCnt) {
         uint64_t billion = TimeConstant::skNsPerSecond;
         std::timespec beginTime = {0, 0}, endTime = {0, 0};
 
@@ -96,8 +98,9 @@ struct TscClock {
             clock_gettime(CLOCK_MONOTONIC_RAW, &beginTime);
             initialEndTsc = rdTsc();
 
-            for (uint64_t i = 0; i < TimeConstant::skNsPerMs * kMultiplier; i++) {
-                asm volatile("pause" :::);
+            for (uint64_t i = 0; i < TimeConstant::skNsPerMs * kPauseMultiplier; i++) {
+                // asm volatile("pause" :::);
+                __builtin_ia32_pause();
             }
 
             terminateBeginTsc = rdTsc();
@@ -119,10 +122,10 @@ struct TscClock {
         }
     }
 
-    void calibrateDelayNsOffset(uint32_t loopCnt = kLoopCnt) {
+    void calibrateDelayNsOffset(uint32_t loopCnt = kCalibrateLoopCnt) {
         delayNsOffsetTicks_ = 0.0;
         delayNsOffsetNs_ = 0.0;
-        loopCnt = loopCnt * kMultiplier * kDelayOffsetMultiplier;
+        loopCnt = loopCnt * kPauseMultiplier * kDelayOffsetMultiplier;
         uint64_t beginTick = rdTsc();
         for (uint32_t i = 0; i < loopCnt; i++) {
             delayNs(1);
