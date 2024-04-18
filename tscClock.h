@@ -6,6 +6,7 @@
 #include <ctime>
 #include <iomanip>
 #include <iostream>
+#include <ostream>
 #include "util.h"
 
 struct TimeConstant {
@@ -24,16 +25,17 @@ struct TscClock {
     static constexpr uint32_t kCalibrateLoopCnt = 71;
     static constexpr uint32_t kPauseMultiplier = 17;
 
-    static TscClock& getInstance() {
+    static TscClock &getInstance() {
         static TscClock clockInstance;
         return clockInstance;
     }
 
-    void show() {
-        std::cout << "ticksPerSecond:" << ticksPerSecond_ << std::endl;
-        std::cout << "nsPerTick:" << nsPerTick_ << std::endl;
-        std::cout << "ticksPerNs:" << ticksPerNs_ << std::endl;
-        std::cout << "delayNsOffsetTicks_:" << delayNsOffsetTicks_ << std::endl;
+    friend inline std::ostream &operator<<(std::ostream &out, const TscClock &clock) {
+        out << " ticksPerSecond:" << clock.ticksPerSecond_ << std::endl
+            << " nsPerTick:" << clock.nsPerTick_ << std::endl
+            << " ticksPerNs:" << clock.ticksPerNs_ << std::endl
+            << " delayNsOffsetTicks_:" << clock.delayNsOffsetTicks_ << std::endl;
+        return out;
     }
 
     void calibrate(uint32_t loopCnt = kCalibrateLoopCnt) {
