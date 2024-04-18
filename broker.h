@@ -57,7 +57,7 @@ struct Broker {
     }
 
     void cancelOrder(const Order &order) {
-        if (order.orderStatus_ != OrderStatus::Cancelled) {
+        if (order.orderStatus_ != OrderStatus::Canceled) {
             return;
         }
 
