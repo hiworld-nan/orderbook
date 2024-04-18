@@ -6,6 +6,10 @@ static constexpr int32_t kDefaultCacheLineSize = 64;
 #define ForceInline __attribute__((always_inline)) inline
 #endif
 
+#ifndef NoOptimize
+#define NoOptimize __attribute__((optimize("O0")))
+#endif
+
 #ifndef NoInline
 #define NoInline __attribute__((noinline))
 #endif

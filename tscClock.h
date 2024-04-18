@@ -18,10 +18,11 @@ struct TimeConstant {
     static constexpr uint64_t skNsPerSecond = 1'000'000'000ul;
 };
 
+// note: cpu-migrantions cause accuration loss or even errors
+//  so should pin thread to a single core and set cstate=0 and isolate the core
 struct TscClock {
     static constexpr uint32_t kCalibrateLoopCnt = 71;
     static constexpr uint32_t kPauseMultiplier = 17;
-    static constexpr uint32_t kDelayOffsetMultiplier = 12345;
 
     static TscClock& getInstance() {
         static TscClock clockInstance;
@@ -33,7 +34,6 @@ struct TscClock {
         std::cout << "nsPerTick:" << nsPerTick_ << std::endl;
         std::cout << "ticksPerNs:" << ticksPerNs_ << std::endl;
         std::cout << "delayNsOffsetTicks_:" << delayNsOffsetTicks_ << std::endl;
-        std::cout << "delayNsOffsetNs:" << delayNsOffsetNs_ << std::endl;
     }
 
     void calibrate(uint32_t loopCnt = kCalibrateLoopCnt) {
@@ -42,51 +42,37 @@ struct TscClock {
         calibrateDelayNsOffset(loopCnt);
     }
 
-    uint64_t rdTsc() const {
-        /*union {
-            uint64_t cycle;
-            struct {
-                uint32_t lo;
-                uint32_t hi;
-            };
-        } tsc = {0};
-
-        asm volatile("rdtsc" : "=a"(tsc.lo), "=d"(tsc.hi)::);
-        return tsc.cycle;*/
-        return __builtin_ia32_rdtsc();
-    };
-
     uint64_t rdNs() const { return tsc2Ns(rdTsc()); }
+    uint64_t rdTsc() const { return __builtin_ia32_rdtsc(); };
+
     inline uint64_t tsc2Ns(uint64_t tsc) const { return static_cast<uint64_t>(tsc * nsPerTick_); }
     inline uint64_t tsc2Sec(uint64_t tsc) const { return static_cast<uint64_t>(tsc / ticksPerSecond_); }
 
-    void delayCycles(uint32_t cycles) {
+    void delayCycles(uint64_t cycles) {
         const uint64_t endTick = rdTsc() + cycles;
-        while (rdTsc() < endTick) {
-            // asm volatile("pause" :::);
+        while (((int64_t)endTick - (int64_t)rdTsc()) > 0) {
             __builtin_ia32_pause();
         }
     }
 
-// todo: Implement delayNs using umwait/tpause.
-#pragma GCC push_options
-#pragma GCC optimize("O0")
-    void delayNs(uint32_t ns) {
-        const uint64_t endTick = rdTsc() + ns * ticksPerNs_ - delayNsOffsetTicks_;
-        while (rdTsc() < endTick) {
-            // asm volatile("pause" :::);
+    // todo: Implement delayNs using umwait/tpause.
+    NoOptimize void delayNs(uint64_t ns) {
+        const uint64_t nowTick = rdTsc();
+        const uint64_t endTick = nowTick + ns * ticksPerNs_ - delayNsOffsetTicks_;
+        if (nowTick >= endTick) {
+            return;
+        }
+
+        while (((int64_t)endTick - (int64_t)rdTsc()) > 0) {
             __builtin_ia32_pause();
         }
     }
-#pragma GCC pop_options
 
    private:
     TscClock() = default;
     ~TscClock() = default;
 
-#pragma GCC push_options
-#pragma GCC optimize("O0")
-    void calibrateTsc(uint32_t loopCnt = kCalibrateLoopCnt) {
+    NoOptimize void calibrateTsc(uint32_t loopCnt = kCalibrateLoopCnt) {
         uint64_t billion = TimeConstant::skNsPerSecond;
         std::timespec beginTime = {0, 0}, endTime = {0, 0};
 
@@ -98,8 +84,7 @@ struct TscClock {
             clock_gettime(CLOCK_MONOTONIC_RAW, &beginTime);
             initialEndTsc = rdTsc();
 
-            for (uint64_t i = 0; i < TimeConstant::skNsPerMs * kPauseMultiplier; i++) {
-                // asm volatile("pause" :::);
+            for (uint64_t j = 0; j < TimeConstant::skNsPerMs * kPauseMultiplier; j++) {
                 __builtin_ia32_pause();
             }
 
@@ -110,6 +95,7 @@ struct TscClock {
             deltaInitial = initialEndTsc - initialBeginTsc;
             deltaTerminate = terminateEndTsc - terminateBeginTsc;
             deltaTotal = deltaInitial + deltaTerminate;
+
             if (deltaTotal < deltaMin) {
                 deltaMin = deltaTotal;
                 intervalTsc = terminateBeginTsc - initialEndTsc;
@@ -122,25 +108,21 @@ struct TscClock {
         }
     }
 
-    void calibrateDelayNsOffset(uint32_t loopCnt = kCalibrateLoopCnt) {
+    NoOptimize void calibrateDelayNsOffset(uint32_t loopCnt = kCalibrateLoopCnt) {
         delayNsOffsetTicks_ = 0.0;
-        delayNsOffsetNs_ = 0.0;
-        loopCnt = loopCnt * kPauseMultiplier * kDelayOffsetMultiplier;
+        const uint64_t cnt = loopCnt * kPauseMultiplier;
+
         uint64_t beginTick = rdTsc();
-        for (uint32_t i = 0; i < loopCnt; i++) {
-            delayNs(1);
+        for (uint64_t i = 0; i < cnt; i++) {
+            delayNs(0);
         }
         uint64_t endTick = rdTsc();
-        delayNsOffsetTicks_ = static_cast<double>(endTick - beginTick) / loopCnt;
-        delayNsOffsetNs_ = delayNsOffsetTicks_ * nsPerTick_;
+        delayNsOffsetTicks_ = static_cast<double>(endTick - beginTick) / cnt;
     }
-#pragma GCC pop_options
 
    private:
     alignas(kDefaultCacheLineSize) double ticksPerSecond_ = 1.0;
     double nsPerTick_ = 1.0;
     double ticksPerNs_ = 1.0;
-
     double delayNsOffsetTicks_ = 0.0;
-    double delayNsOffsetNs_ = 0.0;
 };
