@@ -15,7 +15,7 @@ int32_t main(int32_t argc, char* argv[]) {
 
     TscClock& clock = TscClock::getInstance();
     clock.calibrate();
-    clock.show();
+    std::cout << clock << std::endl;
 
     Broker broker;
     Orderbook<10> zob;
