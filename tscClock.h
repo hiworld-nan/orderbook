@@ -47,8 +47,8 @@ struct TscClock {
     uint64_t rdNs() const { return tsc2Ns(rdTsc()); }
     uint64_t rdTsc() const { return __builtin_ia32_rdtsc(); };
 
+    inline double tsc2Sec(uint64_t tsc) const { return tsc / ticksPerSecond_; }
     inline uint64_t tsc2Ns(uint64_t tsc) const { return static_cast<uint64_t>(tsc * nsPerTick_); }
-    inline uint64_t tsc2Sec(uint64_t tsc) const { return static_cast<uint64_t>(tsc / ticksPerSecond_); }
 
     void delayCycles(uint64_t cycles) {
         const uint64_t endTick = rdTsc() + cycles;
@@ -112,7 +112,7 @@ struct TscClock {
 
     NoOptimize void calibrateDelayNsOffset(uint32_t loopCnt = kCalibrateLoopCnt) {
         delayNsOffsetTicks_ = 0.0;
-        const uint64_t cnt = loopCnt * kPauseMultiplier;
+        const uint64_t cnt = loopCnt * TimeConstant::skNsPerMs;
 
         uint64_t beginTick = rdTsc();
         for (uint64_t i = 0; i < cnt; i++) {
