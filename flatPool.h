@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <set>
+#include <stdexcept>
 #include <utility>
 #include "util.h"
 
@@ -99,6 +100,10 @@ struct FlatPool final {
         if (notNeedNewChunk) [[likely]] {
             return chunks_[latestChunkIndex_];
         } else {
+            const int32_t nextChunkIndex = latestChunkIndex_ + 1;
+            if (nextChunkIndex == SelfT::skMaxChunkSize) {
+                throw std::out_of_range("FlatPool chunk limit reached");
+            }
             Chunk& chunkRef = chunks_[++latestChunkIndex_];
             chunkRef.construct();
             return chunkRef;

@@ -6,6 +6,14 @@ static constexpr int32_t kDefaultCacheLineSize = 64;
 #define ForceInline __attribute__((always_inline)) inline
 #endif
 
+#ifndef HintHot
+#define HintHot __attribute__((hot))
+#endif
+
+#ifndef HintCold
+#define HintCold __attribute__((cold))
+#endif
+
 #ifndef NoOptimize
 #define NoOptimize __attribute__((optimize("O0")))
 #endif

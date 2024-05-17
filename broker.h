@@ -14,6 +14,7 @@
 
 // not thread safe
 struct Broker {
+    // todo: instead of std::map with absl::btree_map
     using BidsT = std::map<Price, Qty, std::greater<Price>, zAllocator<std::pair<const Price, Qty>>>;
     using AsksT = std::map<Price, Qty, std::less<Price>, zAllocator<std::pair<const Price, Qty>>>;
 
@@ -23,7 +24,19 @@ struct Broker {
     Broker &operator=(Broker &&) = delete;
     Broker &operator=(const Broker &) = delete;
 
-    void insertOrder(const Order &order) {
+    HintHot void insertOrder(const Order &order) {
+        /*  lookup table avoid switch case, for performance but useless for readability
+            and actually it's invalid for performance improvement, need to verify again
+
+            using MemFuncT = void (Broker::*)(const Order &);
+            static constexpr int32_t kFunNum = 4;
+            static constexpr MemFuncT FuncTab[kFunNum] = {&Broker::onLimitBuyOrder, &Broker::onLimitSellOrder,
+                                                        &Broker::onMarketBuyOrder, &Broker::onMarketSellOrder};
+            const int32_t funcIndex = ((order.type_ > OrderType::Limit) << 1) | (order.side_ > QuoteType::Buy);
+            MemFuncT func = FuncTab[funcIndex];
+            return (this->*func)(order);
+        */
+
         switch (order.type_) {
             case OrderType::Limit: {
                 switch (order.side_) {
@@ -102,10 +115,10 @@ struct Broker {
     }
 
    private:
-    void onLimitBuyOrder(const Order &buyOrder) {
+    HintHot void onLimitBuyOrder(const Order &buyOrder) {
         Qty remainQty = buyOrder.remainQty_;
         const bool shouldBeMatch = !lessThan(buyOrder.price_, bestAskPrice_);
-        if (shouldBeMatch) {
+        if (shouldBeMatch) [[likely]] {
             for (auto it = asks_.begin(); it != asks_.upper_bound(buyOrder.price_);) {
                 if (it->second > remainQty) [[likely]] {
                     bestAskPrice_ = it->first;
@@ -145,10 +158,10 @@ struct Broker {
         }
     }
 
-    void onLimitSellOrder(const Order &sellOrder) {
+    HintHot void onLimitSellOrder(const Order &sellOrder) {
         Qty remainQty = sellOrder.remainQty_;
         const bool shouldBeMatch = !greator(sellOrder.price_, bestBidPrice_);
-        if (shouldBeMatch) {
+        if (shouldBeMatch) [[likely]] {
             for (auto it = bids_.begin(); it != bids_.upper_bound(sellOrder.price_);) {
                 if (it->second > remainQty) [[likely]] {
                     bestBidPrice_ = it->first;
@@ -192,7 +205,7 @@ struct Broker {
     void onMarketBuyOrder(const Order &buyOrder) {
         Qty remainQty = buyOrder.remainQty_;
         const bool shouldBeMatch = lessThan(buyOrder.price_, bestAskPrice_);
-        if (shouldBeMatch) {
+        if (shouldBeMatch) [[likely]] {
             for (auto it = asks_.begin(); it != asks_.end();) {
                 if (it->second > remainQty) [[likely]] {
                     bestAskPrice_ = it->first;
@@ -228,7 +241,7 @@ struct Broker {
     void onMarketSellOrder(const Order &sellOrder) {
         Qty remainQty = sellOrder.remainQty_;
         const bool shouldBeMatch = !greator(sellOrder.price_, bestBidPrice_);
-        if (shouldBeMatch) {
+        if (shouldBeMatch) [[likely]] {
             for (auto it = bids_.begin(); it != bids_.end();) {
                 if (it->second > remainQty) [[likely]] {
                     bestBidPrice_ = it->first;

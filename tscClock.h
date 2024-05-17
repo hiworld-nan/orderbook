@@ -34,7 +34,7 @@ struct TscClock {
         out << " ticksPerSecond:" << clock.ticksPerSecond_ << std::endl
             << " nsPerTick:" << clock.nsPerTick_ << std::endl
             << " ticksPerNs:" << clock.ticksPerNs_ << std::endl
-            << " delayNsOffsetTicks_:" << clock.delayNsOffsetTicks_ << std::endl;
+            << " delayNsOffsetTicks:" << clock.delayNsOffsetTicks_ << std::endl;
         return out;
     }
 
@@ -45,9 +45,9 @@ struct TscClock {
     }
 
     uint64_t rdNs() const { return tsc2Ns(rdTsc()); }
-    uint64_t rdTsc() const { return __builtin_ia32_rdtsc(); };
+    uint64_t rdTsc() const { return __builtin_ia32_rdtsc(); }
 
-    inline double tsc2Sec(uint64_t tsc) const { return tsc / ticksPerSecond_; }
+    inline double tsc2Sec(uint64_t tsc) const { return tsc * secPerTick_; }
     inline uint64_t tsc2Ns(uint64_t tsc) const { return static_cast<uint64_t>(tsc * nsPerTick_); }
 
     void delayCycles(uint64_t cycles) {
@@ -106,6 +106,7 @@ struct TscClock {
                 ticksPerNs_ = intervalTsc / static_cast<double>(intervalNs);
                 nsPerTick_ = static_cast<double>(intervalNs) / intervalTsc;
                 ticksPerSecond_ = intervalTsc / static_cast<double>(intervalNs) * billion;
+                secPerTick_ = static_cast<double>(intervalNs) * billion / intervalTsc;
             }
         }
     }
@@ -124,6 +125,7 @@ struct TscClock {
 
    private:
     alignas(kDefaultCacheLineSize) double ticksPerSecond_ = 1.0;
+    double secPerTick_ = 0.0;
     double nsPerTick_ = 1.0;
     double ticksPerNs_ = 1.0;
     double delayNsOffsetTicks_ = 0.0;
